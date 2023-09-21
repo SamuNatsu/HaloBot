@@ -1,0 +1,1 @@
+/// Http adaptor class
