@@ -30,7 +30,7 @@ export interface Plugin {
     info: string;
     priority: number;
     version: string;
-    haloVersion: string;
+    botVersion: string;
   };
   [key: string]: any;
 

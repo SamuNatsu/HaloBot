@@ -1,1 +1,0 @@
-/// Reverse WebSocket adaptor class
