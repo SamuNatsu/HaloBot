@@ -143,7 +143,7 @@ export interface GroupCardNoticeEvent {
   card_old: string;
 }
 
-export interface OfflineFileNoticeEvent {
+export interface FriendOfflineFileNoticeEvent {
   time: bigint;
   self_id: bigint;
   post_type: 'notice';
@@ -176,5 +176,5 @@ export interface GroupEssenceNoticeEvent {
   group_id: bigint;
   sender_id: bigint;
   operator_id: bigint;
-  message_id: number;
+  message_id: bigint;
 }

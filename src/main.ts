@@ -8,7 +8,7 @@ logger.info('欢迎使用 HaloBot！');
 logger.info('正在创建实例化机器人');
 try {
   const bot: Bot = await Bot.create();
-  bot.start();
+  await bot.start();
 } catch (err: unknown) {
   logger.fatal('无法实例化机器人', err);
 }

@@ -22,7 +22,6 @@ import {
   UnidirectionalFriendInfo,
   VersionInfo
 } from '../interfaces/api_return';
-import { Plugin } from '../interfaces/plugin';
 import path from 'path';
 import fs from 'fs';
 import { Config } from '../interfaces/config';
@@ -32,30 +31,19 @@ import { ForwardWebSocketAdaptor } from './ForwardWebSocketAdaptor';
 import { getDirname } from '../utils';
 import { Logger } from './Logger';
 import { configSchema } from '../schemas/config';
-import { pluginSchema } from '../schemas/plugin';
-import { EventHandler } from './EventHandler';
-import {
-  FriendRecallNoticeEvent,
-  GroupAdminNoticeEvent,
-  GroupDecreaseNoticeEvent,
-  GroupIncreaseNoticeEvent,
-  GroupRecallNoticeEvent
-} from '../interfaces/notice_event';
-import {
-  GroupMessageEvent,
-  PrivateMessageEvent
-} from '../interfaces/message_event';
-import {
-  FriendRequestEvent,
-  GroupRequestEvent
-} from '../interfaces/request_event';
+import { pluginMetaSchema } from '../schemas/plugin_meta';
+import { EventDispatcher } from './EventDispatcher';
+import { Plugin } from './Plugin';
+import { PluginMeta } from '../interfaces/plugin_meta';
+import { CallCustomEvent } from '../interfaces/custom_event';
 
 /* Export class */
 export class Bot {
   /* Properties */
   private adaptor: Adaptor;
-  private handler: EventHandler = new EventHandler();
+  private dispatcher: EventDispatcher = new EventDispatcher();
   private logger: Logger = new Logger('HaloBot');
+  private started: boolean = false;
 
   public readonly config: Config;
 
@@ -86,234 +74,28 @@ export class Bot {
           config.connection.url as string
         );
         break;
+      case 'dry-run':
+        adaptor = await Adaptor.create();
+        break;
     }
 
     const ret: Bot = new Bot(config, adaptor);
-    adaptor.messageHandler = ret.eventDisptach.bind(ret);
+    adaptor.messageHandler = ret.dispatcher.dispatch.bind(ret.dispatcher);
     await ret.loadPlugins();
 
+    ret.logger.info('HaloBot 实例创建成功');
     return ret;
-  }
-
-  /* Event despatch */
-  private eventDisptach(res: any): void {
-    switch (res.post_type) {
-      case 'message':
-      case 'message_sent':
-        switch (res.message_type) {
-          case 'private': {
-            const tmp: PrivateMessageEvent = res;
-            this.logger.info(
-              `收到来自 ${tmp.sender.nickname}[${tmp.user_id}] 的私聊消息`,
-              tmp.raw_message
-            );
-            this.handler.process('onPrivateMessage', this, tmp);
-            break;
-          }
-          case 'group': {
-            const tmp: GroupMessageEvent = res;
-            this.logger.info(
-              `收到来自群 [${tmp.group_id}] 内 ${
-                tmp.sender.card?.length === 0
-                  ? tmp.sender.nickname
-                  : tmp.sender.card
-              }[${tmp.user_id}] 的群聊消息`,
-              tmp.raw_message
-            );
-            this.handler.process('onGroupMessage', this, tmp);
-            break;
-          }
-        }
-        break;
-      case 'request':
-        switch (res.request_type) {
-          case 'friend': {
-            const tmp: FriendRequestEvent = res;
-            this.logger.info(
-              `收到来自 [${tmp.user_id}] 的好友请求`,
-              tmp.comment
-            );
-            this.handler.process('onFriendRequest', this, tmp);
-            break;
-          }
-          case 'group': {
-            const tmp: GroupRequestEvent = res;
-            this.logger.info(
-              `收到来自 [${tmp.user_id}] 的加群 [${tmp.group_id}] ${
-                tmp.sub_type === 'add' ? '请求' : '邀请'
-              }`,
-              res.comment
-            );
-            this.handler.process('onGroupRequest', this, tmp);
-            break;
-          }
-        }
-        break;
-      case 'notice':
-        switch (res.notice_type) {
-          case 'friend_recall': {
-            const tmp: FriendRecallNoticeEvent = res;
-            this.logger.info(
-              `[${tmp.user_id}] 撤回了私聊消息 (${tmp.message_id})`
-            );
-            this.handler.process('onFriendRecall', this, tmp);
-            break;
-          }
-          case 'group_recall': {
-            const tmp: GroupRecallNoticeEvent = res;
-            this.logger.info(
-              `群 [${tmp.group_id}] 成员 [${tmp.operator_id}] 撤回了群聊消息 (${tmp.message_id})`
-            );
-            this.handler.process('onGroupRecall', this, tmp);
-            break;
-          }
-          case 'group_increase': {
-            const tmp: GroupIncreaseNoticeEvent = res;
-            this.logger.info(
-              `群 [${tmp.group_id}] 因为成员 [${tmp.opeator_id}] ${
-                tmp.sub_type === 'approve' ? '同意' : '邀请'
-              }而新增了成员 [${tmp.user_id}]`
-            );
-            this.handler.process('onGroupIncrease', this, tmp);
-            break;
-          }
-          case 'group_decrease': {
-            const tmp: GroupDecreaseNoticeEvent = res;
-            this.logger.info(
-              `群 [${tmp.group_id}] 因为成员 [${tmp.opeator_id}] ${
-                tmp.sub_type === 'leave' ? '主动退群' : '踢出成员'
-              }而减少了成员 [${tmp.user_id}]`
-            );
-            this.handler.process('onGroupDecrease', this, tmp);
-            break;
-          }
-          case 'group_admin': {
-            const tmp: GroupAdminNoticeEvent = res;
-            this.logger.info(
-              `群 [${tmp.group_id}] ${
-                tmp.sub_type === 'set' ? '设置了' : '取消了'
-              }成员 [${tmp.user_id}] 的管理员权限`
-            );
-            this.handler.process('onGroupAdminUpadte', this, tmp);
-            break;
-          }
-          case 'group_upload':
-            for (const i of this.plugins) {
-              if (i.onGroupFileUpload !== undefined) {
-                i.onGroupFileUpload(this, res);
-              }
-            }
-            break;
-          case 'group_ban':
-            for (const i of this.plugins) {
-              if (i.onGroupBan !== undefined) {
-                i.onGroupBan(this, res);
-              }
-            }
-            break;
-          case 'friend_add':
-            for (const i of this.plugins) {
-              if (i.onFriendAdd !== undefined) {
-                i.onFriendAdd(this, res);
-              }
-            }
-            break;
-          case 'notify':
-            switch (res.sub_type) {
-              case 'poke':
-                for (const i of this.plugins) {
-                  if (i.onPoke !== undefined) {
-                    i.onPoke(this, res);
-                  }
-                }
-                break;
-              case 'lucky_king':
-                for (const i of this.plugins) {
-                  if (i.onGroupLuckyKing !== undefined) {
-                    i.onGroupLuckyKing(this, res);
-                  }
-                }
-                break;
-              case 'honor':
-                for (const i of this.plugins) {
-                  if (i.onGroupHonorUpdate !== undefined) {
-                    i.onGroupHonorUpdate(this, res);
-                  }
-                }
-                break;
-              case 'title':
-                for (const i of this.plugins) {
-                  if (i.onGroupTitleUpdate !== undefined) {
-                    i.onGroupTitleUpdate(this, res);
-                  }
-                }
-                break;
-            }
-            break;
-          case 'group_card':
-            for (const i of this.plugins) {
-              if (i.onGroupCardUpdate !== undefined) {
-                i.onGroupCardUpdate(this, res);
-              }
-            }
-            break;
-          case 'offline_file':
-            for (const i of this.plugins) {
-              if (i.onOfflineFile !== undefined) {
-                i.onOfflineFile(this, res);
-              }
-            }
-            break;
-          case 'client_status':
-            for (const i of this.plugins) {
-              if (i.onClientStatusUpdate !== undefined) {
-                i.onClientStatusUpdate(this, res);
-              }
-            }
-            break;
-          case 'essence':
-            for (const i of this.plugins) {
-              if (i.onGroupEssenceUpdate !== undefined) {
-                i.onGroupEssenceUpdate(this, res);
-              }
-            }
-            break;
-        }
-        break;
-      case 'meta_event':
-        switch (res.meta_event_type) {
-          case 'heartbeat':
-            this.handler.process('onHeartbeat', this, res);
-            break;
-          case 'lifecycle':
-            this.handler.process('onLifecycle', this, res);
-            break;
-        }
-        break;
-    }
-  }
-
-  /* Start */
-  public start(): void {
-    this.logger.info('now starting plugins');
-    for (const i of this.plugins) {
-      if (i.onStart !== undefined) {
-        i.onStart(this);
-      }
-      this.handler.registerPlugin(i);
-      this.logger.info(`plugin "${i.meta.name}" started`);
-    }
   }
 
   /* Plugins */
   private plugins: Plugin[] = [];
   private async loadPlugins(): Promise<void> {
-    this.logger.info('now loading plugins');
+    this.logger.info('正在加载插件');
 
     const dirname: string = getDirname();
     const pluginDir: string = path.join(dirname, './plugins');
     if (!fs.existsSync(pluginDir)) {
-      this.logger.warn('plugins folder not exists, now create a new one');
+      this.logger.warn(`插件目录不存在，正在创建目录: ${pluginDir}`);
       fs.mkdirSync(pluginDir, { recursive: true });
     }
 
@@ -334,53 +116,97 @@ export class Bot {
 
     for (const i of pluginEntries) {
       try {
-        const plugin: Plugin = (await import('file://' + i)).default;
-        const { error } = pluginSchema.validate(plugin);
+        const module: any = await import('file://' + i);
+
+        const meta: PluginMeta = module.meta;
+        const { error } = pluginMetaSchema.validate(meta);
         if (error !== undefined) {
           throw error;
         }
 
+        const UserPlugin: typeof Plugin = module.UserPlugin;
+        const plugin: Plugin = new UserPlugin(
+          this,
+          new Logger(meta.name),
+          meta
+        );
+
         this.plugins.push(plugin);
-        this.logger.info(`plugin "${plugin.meta.name}" found`);
+        this.logger.info(`找到插件 "${plugin.meta.name}"`);
       } catch (err: unknown) {
-        this.logger.warn(`fail to load plugin at "${i}"`, err);
+        this.logger.error(`无法加载插件: ${i}`, err);
       }
     }
 
-    this.logger.info('now sorting plugins by priority');
+    this.logger.info('正在按照优先级排序插件');
     this.plugins.sort(
       (a: Plugin, b: Plugin): number => a.meta.priority - b.meta.priority
     );
   }
-
-  /* Halo APIs */
-  public async reloadPlugins(): Promise<void> {
-    this.logger.info('now reloading plugins');
-
+  private async startPlugins(): Promise<void> {
+    this.logger.info('正在启动插件');
     for (const i of this.plugins) {
-      if (i.onStop !== undefined) {
-        i.onStop(this);
+      try {
+        if (i.onStart !== undefined) {
+          await i.onStart();
+        }
+        this.dispatcher.register(i);
+        this.logger.info(`插件 "${i.meta.name}" 已启动`);
+      } catch (err: unknown) {
+        this.logger.error(`插件 "${i.meta.name}" 启动出错`, err);
       }
-      this.logger.info(`plugin "${i.meta.name}" stopped`);
-    }
-
-    this.plugins = [];
-    this.handler.clear();
-    this.logger.info('all plugins were released');
-
-    await this.loadPlugins();
-
-    this.logger.info('now starting plugins');
-    for (const i of this.plugins) {
-      if (i.onStart !== undefined) {
-        i.onStart(this);
-      }
-      this.handler.registerPlugin(i);
-      this.logger.info(`plugin "${i.meta.name}" started`);
     }
   }
-  public getLogger(name: string): Logger {
-    return new Logger(name);
+  private async stopPlugins(): Promise<void> {
+    this.logger.info('正在停止插件');
+    for (const i of this.plugins) {
+      try {
+        if (i.onStop !== undefined) {
+          await i.onStop();
+        }
+        this.logger.info(`插件 "${i.meta.name}" 已停止`);
+      } catch (err: unknown) {
+        this.logger.error(`插件 "${i.meta.name}" 停止出错`, err);
+      }
+    }
+  }
+
+  /* Start */
+  public async start(): Promise<void> {
+    if (this.started) {
+      throw new Error('HaloBot 已启动');
+    }
+    await this.startPlugins();
+    this.started = true;
+    process.stdin.resume();
+  }
+
+  /* Halo APIs */
+  public async restartPlugins(): Promise<void> {
+    await this.stopPlugins();
+    await this.startPlugins();
+  }
+  public callPluginMethod(
+    call_from: string,
+    method_name: string,
+    params: any,
+    target?: string
+  ): Promise<any> {
+    return new Promise<any>(
+      (resolve: (value: any) => void, reject: (reason?: any) => void): void => {
+        this.dispatcher.dispatch(<CallCustomEvent>{
+          time: BigInt(Math.floor(Date.now() / 1000)),
+          post_type: 'custom_event',
+          custom_event_type: 'call',
+          call_from,
+          target,
+          method_name,
+          params,
+          resolve,
+          reject
+        });
+      }
+    );
   }
 
   /* Account APIs */

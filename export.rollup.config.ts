@@ -5,9 +5,9 @@ import typescript from '@rollup/plugin-typescript';
 
 /* Export config */
 export default defineConfig({
-  input: 'src/main.ts',
+  input: 'src/export.ts',
   output: {
-    file: 'dist/HaloBot.min.mjs',
+    file: 'dist/HaloBotPlugin.min.mjs',
     format: 'esm'
   },
   plugins: [terser(), typescript()]

@@ -17,8 +17,8 @@ export interface HeartbeatMetaEvent {
       packet_lost: bigint;
       message_received: bigint;
       message_sent: bigint;
-      disconnect_times: number;
-      lost_times: number;
+      disconnect_times: bigint;
+      lost_times: bigint;
       last_message_time: bigint;
     };
   };

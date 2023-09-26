@@ -17,16 +17,16 @@ export interface PrivateMessageEvent {
   post_type: 'message';
   message_type: 'private';
   sub_type: 'friend' | 'group' | 'group_self' | 'other';
-  message_id: number;
+  message_id: bigint;
   user_id: bigint;
   message: string;
   raw_message: string;
-  font: number;
+  font: bigint;
   sender: Partial<{
     user_id: string;
     nickname: string;
     sex: 'male' | 'female' | 'unknown';
-    age: number;
+    age: bigint;
     group_id: string;
   }>;
   target_id: bigint;
@@ -39,16 +39,16 @@ export interface GroupMessageEvent {
   post_type: 'message';
   message_type: 'group';
   sub_type: 'normal' | 'anonymous' | 'notice';
-  message_id: number;
+  message_id: bigint;
   user_id: bigint;
   message: string;
   raw_message: string;
-  font: number;
+  font: bigint;
   sender: Partial<{
     user_id: string;
     nickname: string;
     sex: 'male' | 'female' | 'unknown';
-    age: number;
+    age: bigint;
     card: string;
     area: string;
     level: string;
