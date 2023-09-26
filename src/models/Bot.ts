@@ -24,18 +24,17 @@ import {
 } from '../interfaces/api_return';
 import path from 'path';
 import fs from 'fs';
-import { Config } from '../interfaces/config';
+import { Config } from '../interfaces/Config';
 import YAML from 'yaml';
-import { ActionError, ActionResponse, Adaptor } from './Adaptor';
+import { ActionError, Adaptor } from './Adaptor';
 import { ForwardWebSocketAdaptor } from './ForwardWebSocketAdaptor';
 import { getDirname } from '../utils';
 import { Logger } from './Logger';
-import { configSchema } from '../schemas/config';
-import { pluginMetaSchema } from '../schemas/plugin_meta';
+import { schema as configSchema } from '../schemas/Config';
 import { EventDispatcher } from './EventDispatcher';
-import { Plugin } from './Plugin';
-import { PluginMeta } from '../interfaces/plugin_meta';
 import { CallCustomEvent } from '../interfaces/custom_event';
+import { Plugin } from '../interfaces/Plugin';
+import { schema as pluginSchema } from '../schemas/Plugin';
 
 /* Export class */
 export class Bot {
@@ -116,23 +115,15 @@ export class Bot {
 
     for (const i of pluginEntries) {
       try {
-        const module: any = await import('file://' + i);
+        const plugin: Plugin = (await import('file://' + i)).default;
 
-        const meta: PluginMeta = module.meta;
-        const { error } = pluginMetaSchema.validate(meta);
+        const { error } = pluginSchema.validate(plugin);
         if (error !== undefined) {
           throw error;
         }
 
-        const UserPlugin: typeof Plugin = module.UserPlugin;
-        const plugin: Plugin = new UserPlugin(
-          this,
-          new Logger(meta.name),
-          meta
-        );
-
         this.plugins.push(plugin);
-        this.logger.info(`找到插件 "${plugin.meta.name}"`);
+        this.logger.info(`找到插件 ${plugin.meta.name}[${plugin.meta.namespace}]`);
       } catch (err: unknown) {
         this.logger.error(`无法加载插件: ${i}`, err);
       }
@@ -148,12 +139,12 @@ export class Bot {
     for (const i of this.plugins) {
       try {
         if (i.onStart !== undefined) {
-          await i.onStart();
+          await i.onStart(this, new Logger(i.meta.name));
         }
         this.dispatcher.register(i);
-        this.logger.info(`插件 "${i.meta.name}" 已启动`);
+        this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已启动`);
       } catch (err: unknown) {
-        this.logger.error(`插件 "${i.meta.name}" 启动出错`, err);
+        this.logger.error(`插件 ${i.meta.name}[${i.meta.namespace}] 启动出错`, err);
       }
     }
   }
@@ -164,9 +155,9 @@ export class Bot {
         if (i.onStop !== undefined) {
           await i.onStop();
         }
-        this.logger.info(`插件 "${i.meta.name}" 已停止`);
+        this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已停止`);
       } catch (err: unknown) {
-        this.logger.error(`插件 "${i.meta.name}" 停止出错`, err);
+        this.logger.error(`插件 ${i.meta.name}[${i.meta.namespace}] 停止出错`, err);
       }
     }
   }

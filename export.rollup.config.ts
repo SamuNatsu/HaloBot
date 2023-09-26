@@ -7,8 +7,10 @@ import typescript from '@rollup/plugin-typescript';
 export default defineConfig({
   input: 'src/export.ts',
   output: {
-    file: 'dist/HaloBotPlugin.min.mjs',
+    file: 'dist/HaloBotPlugin.js',
     format: 'esm'
   },
-  plugins: [terser(), typescript()]
+  plugins: [terser({
+    mangle: false
+  }), typescript()]
 });

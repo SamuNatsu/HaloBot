@@ -4,9 +4,9 @@ import { dts } from 'rollup-plugin-dts';
 
 /* Export config */
 export default defineConfig({
-  input: 'dist/dts/main.d.ts',
+  input: 'dist/dts/export.d.ts',
   output: {
-    file: 'dist/HaloBot.d.ts',
+    file: 'dist/HaloBotPlugin.d.ts',
     format: 'esm'
   },
   plugins: [dts()]

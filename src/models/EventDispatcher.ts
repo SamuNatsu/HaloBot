@@ -1,4 +1,5 @@
 /// Event dispatcher model
+import { Plugin } from '../interfaces/Plugin';
 import { CallCustomEvent } from '../interfaces/custom_event';
 import {
   GroupMessageEvent,
@@ -27,18 +28,31 @@ import {
   GroupRequestEvent
 } from '../interfaces/request_event';
 import { Logger } from './Logger';
-import { Plugin } from './Plugin';
 
 /* Export class */
 export class EventDispatcher {
   /* Properties */
   private logger: Logger = new Logger('EventDispatcher');
-  private listenerMap: Map<string, Function[]> = new Map();
+  private listenerMap: Map<string, Record<string, Function>> = new Map();
 
   /* Methods */
   private relay(name: string, ev: any): void {
-    console.log(this.listenerMap.get(name));
-    this.listenerMap.get(name)?.forEach((value: Function): void => value(ev));
+    const listeners: Record<string, Function> | undefined =
+      this.listenerMap.get(name);
+    if (listeners === undefined) {
+      return;
+    }
+    for (const i in listeners) {
+      listeners[i](ev);
+    }
+  }
+  private relayTarget(name: string, target: string, ev: any): void {
+    const listeners: Record<string, Function> | undefined =
+      this.listenerMap.get(name);
+    if (listeners === undefined || listeners[target] === undefined) {
+      return;
+    }
+    listeners[target](ev);
   }
 
   public register(plugin: Plugin): void {
@@ -47,9 +61,11 @@ export class EventDispatcher {
         continue;
       }
       if (!this.listenerMap.has(i)) {
-        this.listenerMap.set(i, []);
+        this.listenerMap.set(i, {});
       }
-      this.listenerMap.get(i)?.push(plugin[i].bind(plugin));
+      (this.listenerMap.get(i) as Record<string, Function>)[
+        plugin.meta.namespace
+      ] = plugin[i].bind(plugin);
     }
   }
   public clear(): void {
@@ -280,6 +296,7 @@ export class EventDispatcher {
               this.logger.info(
                 `收到插件 [${tmp.call_from}] 上报给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`
               );
+              this.relayTarget('onCall', tmp.target, tmp);
             } else {
               this.logger.info(
                 `收到插件 [${tmp.call_from}] 上报的全局方法调用: ${tmp.method_name}`

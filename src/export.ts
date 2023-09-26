@@ -1,2 +1,8 @@
 /// Export modules
-export { Plugin } from './models/Plugin';
+import { Plugin } from './interfaces/Plugin';
+
+export function definePlugin(plugin: Plugin): Plugin {
+  return plugin;
+}
+
+export { Plugin };

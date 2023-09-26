@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/HaloBot.min.mjs",
   "module": "dist/HaloBot.min.mjs",
-  "types": "dist/HaloBot.d.ts",
+  "types": "dist/HaloBotPlugin.d.ts",
   "scripts": {
     "build": "rollup -c --configPlugin typescript && rollup -c export.rollup.config.ts --configPlugin typescript",
     "gen-type": "rollup -c dts.rollup.config.ts --configPlugin typescript",
