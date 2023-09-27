@@ -42,7 +42,7 @@ export class Bot {
   private adaptor: Adaptor;
   private dispatcher: EventDispatcher = new EventDispatcher();
   private logger: Logger = new Logger('HaloBot');
-  private started: boolean = false;
+  private watchdog?: NodeJS.Timeout;
 
   public readonly config: Config;
 
@@ -82,14 +82,14 @@ export class Bot {
     adaptor.messageHandler = ret.dispatcher.dispatch.bind(ret.dispatcher);
     await ret.loadPlugins();
 
-    ret.logger.info('HaloBot 实例创建成功');
+    ret.logger.info('HaloBot 实例化成功');
     return ret;
   }
 
   /* Plugins */
   private plugins: Plugin[] = [];
   private async loadPlugins(): Promise<void> {
-    this.logger.info('正在加载插件');
+    this.logger.debug('正在加载插件列表');
 
     const dirname: string = getDirname();
     const pluginDir: string = path.join(dirname, './plugins');
@@ -123,13 +123,15 @@ export class Bot {
         }
 
         this.plugins.push(plugin);
-        this.logger.info(`找到插件 ${plugin.meta.name}[${plugin.meta.namespace}]`);
+        this.logger.trace(
+          `找到插件 ${plugin.meta.name}[${plugin.meta.namespace}]`
+        );
       } catch (err: unknown) {
         this.logger.error(`无法加载插件: ${i}`, err);
       }
     }
 
-    this.logger.info('正在按照优先级排序插件');
+    this.logger.debug('正在按照优先级排序插件');
     this.plugins.sort(
       (a: Plugin, b: Plugin): number => a.meta.priority - b.meta.priority
     );
@@ -139,12 +141,15 @@ export class Bot {
     for (const i of this.plugins) {
       try {
         if (i.onStart !== undefined) {
-          await i.onStart(this, new Logger(i.meta.name));
+          await i.onStart(this, new Logger(`Plugin:${i.meta.name}`));
         }
         this.dispatcher.register(i);
         this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已启动`);
       } catch (err: unknown) {
-        this.logger.error(`插件 ${i.meta.name}[${i.meta.namespace}] 启动出错`, err);
+        this.logger.error(
+          `插件 ${i.meta.name}[${i.meta.namespace}] 启动出错`,
+          err
+        );
       }
     }
   }
@@ -157,28 +162,57 @@ export class Bot {
         }
         this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已停止`);
       } catch (err: unknown) {
-        this.logger.error(`插件 ${i.meta.name}[${i.meta.namespace}] 停止出错`, err);
+        this.logger.error(
+          `插件 ${i.meta.name}[${i.meta.namespace}] 停止出错`,
+          err
+        );
       }
     }
   }
 
-  /* Start */
+  /* Control */
   public async start(): Promise<void> {
-    if (this.started) {
+    if (this.watchdog !== undefined) {
       throw new Error('HaloBot 已启动');
     }
+
+    this.logger.info('正在启动 HaloBot');
+
     await this.startPlugins();
-    this.started = true;
-    process.stdin.resume();
+    this.watchdog = setInterval((): void => {}, 5000);
+
+    this.logger.info('HaloBot 已启动');
+  }
+  public async stop(): Promise<void> {
+    if (this.watchdog === undefined) {
+      throw new Error('HaloBot 未启动');
+    }
+
+    this.logger.info('正在停止 HaloBot');
+
+    await this.stopPlugins();
+    clearInterval(this.watchdog);
+    this.watchdog = undefined;
+
+    this.logger.info('HaloBot 已停止');
+    process.exit(0);
   }
 
   /* Halo APIs */
+  public async restartBot(): Promise<void> {
+    this.logger.info('请求重启 HaloBot');
+    await this.stopPlugins();
+    process.exit(128);
+  }
   public async restartPlugins(): Promise<void> {
+    this.logger.info('请求重启插件');
+
     await this.stopPlugins();
     await this.startPlugins();
+
+    this.logger.info('插件已重启');
   }
   public callPluginMethod(
-    call_from: string,
     method_name: string,
     params: any,
     target?: string
@@ -189,7 +223,6 @@ export class Bot {
           time: BigInt(Math.floor(Date.now() / 1000)),
           post_type: 'custom_event',
           custom_event_type: 'call',
-          call_from,
           target,
           method_name,
           params,

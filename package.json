@@ -6,8 +6,7 @@
   "module": "dist/HaloBot.min.mjs",
   "types": "dist/HaloBotPlugin.d.ts",
   "scripts": {
-    "build": "rollup -c --configPlugin typescript && rollup -c export.rollup.config.ts --configPlugin typescript",
-    "gen-type": "rollup -c dts.rollup.config.ts --configPlugin typescript",
+    "build": "bin/build.sh",
     "dev": "node dist/HaloBot.min.mjs"
   },
   "type": "module",
@@ -28,6 +27,7 @@
     "chalk": "^5.3.0",
     "joi": "^17.10.2",
     "json-bigint": "^1.0.0",
+    "moment": "^2.29.4",
     "ws": "^8.14.2",
     "yaml": "^2.3.2"
   }

@@ -33,26 +33,47 @@ import { Logger } from './Logger';
 export class EventDispatcher {
   /* Properties */
   private logger: Logger = new Logger('EventDispatcher');
-  private listenerMap: Map<string, Record<string, Function>> = new Map();
+  private listenerMap: Map<string, [string, Function][]> = new Map();
 
   /* Methods */
   private relay(name: string, ev: any): void {
-    const listeners: Record<string, Function> | undefined =
+    const listeners: [string, Function][] | undefined =
       this.listenerMap.get(name);
     if (listeners === undefined) {
       return;
     }
-    for (const i in listeners) {
-      listeners[i](ev);
+    for (const i of listeners) {
+      try {
+        i[1](ev);
+      } catch (err: unknown) {
+        this.logger.error(
+          `插件 [${i[0]}] 抛出了未被捕获的错误于：${name}`,
+          err
+        );
+      }
     }
   }
-  private relayTarget(name: string, target: string, ev: any): void {
-    const listeners: Record<string, Function> | undefined =
+  private relayTarget(name: string, target: string, ev: CallCustomEvent): void {
+    const listeners: [string, Function][] | undefined =
       this.listenerMap.get(name);
-    if (listeners === undefined || listeners[target] === undefined) {
+    if (listeners === undefined) {
       return;
     }
-    listeners[target](ev);
+    const tgt: [string, Function] | undefined = listeners.find(
+      (value: [string, Function]): boolean => value[0] === target
+    );
+    if (tgt === undefined) {
+      ev.reject(new Error(`不存在可以响应方法调用的插件: ${target}`));
+      return;
+    }
+    try {
+      tgt[1](ev);
+    } catch (err: unknown) {
+      this.logger.error(
+        `插件 [${target}] 抛出了未被捕获的错误于：${name}`,
+        err
+      );
+    }
   }
 
   public register(plugin: Plugin): void {
@@ -61,11 +82,11 @@ export class EventDispatcher {
         continue;
       }
       if (!this.listenerMap.has(i)) {
-        this.listenerMap.set(i, {});
+        this.listenerMap.set(i, []);
       }
-      (this.listenerMap.get(i) as Record<string, Function>)[
-        plugin.meta.namespace
-      ] = plugin[i].bind(plugin);
+      this.listenerMap
+        .get(i)
+        ?.push([plugin.meta.namespace, plugin[i].bind(plugin)]);
     }
   }
   public clear(): void {
@@ -294,13 +315,11 @@ export class EventDispatcher {
             const tmp: CallCustomEvent = ev;
             if (tmp.target !== undefined) {
               this.logger.info(
-                `收到插件 [${tmp.call_from}] 上报给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`
+                `收到上报给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`
               );
               this.relayTarget('onCall', tmp.target, tmp);
             } else {
-              this.logger.info(
-                `收到插件 [${tmp.call_from}] 上报的全局方法调用: ${tmp.method_name}`
-              );
+              this.logger.info(`收到全局方法调用: ${tmp.method_name}`);
               this.relay('onCall', tmp);
             }
             break;

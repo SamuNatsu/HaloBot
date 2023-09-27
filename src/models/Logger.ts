@@ -1,5 +1,6 @@
 /// Logger model
 import chalk from 'chalk';
+import moment from 'moment';
 
 /* Export class */
 export class Logger {
@@ -12,29 +13,19 @@ export class Logger {
   }
 
   /* Methods */
-  private printTime(): void {
-    process.stdout.write(`[${new Date().toISOString()}] `);
-  }
-  private printName(): void {
-    process.stdout.write(` (${this.name}): `);
-  }
-  private printArgs(args: any[]): void {
-    process.stdout.write('\n');
+  private printTemplate(level: string, msg: string, args: any[]): void {
+    let str: string = `[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${level} (${
+      this.name
+    }): ${chalk.blueBright(msg)}\n`;
     for (const i of args) {
       if (i instanceof Error) {
-        process.stdout.write(chalk.gray(i.stack ?? `${i.name}: ${i.message}`));
+        str += chalk.gray(i.stack ?? `${i.name}: ${i.message}`);
       } else {
-        process.stdout.write(chalk.gray(JSON.stringify(i, undefined, 2)));
+        str += chalk.gray(JSON.stringify(i, undefined, 2));
       }
-      process.stdout.write('\n');
+      str += '\n';
     }
-  }
-  private printTemplate(level: string, msg: string, args: any[]): void {
-    this.printTime();
-    process.stdout.write(level);
-    this.printName();
-    process.stdout.write(chalk.blueBright(msg));
-    this.printArgs(args);
+    process.stdout.write(str);
   }
 
   public trace(msg: string, ...args: any[]): void {

@@ -14,6 +14,9 @@ dependencies:
   json-bigint:
     specifier: ^1.0.0
     version: 1.0.0
+  moment:
+    specifier: ^2.29.4
+    version: 2.29.4
   ws:
     specifier: ^8.14.2
     version: 8.14.2
@@ -334,6 +337,10 @@ packages:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
+
+  /moment@2.29.4:
+    resolution: {integrity: sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==}
+    dev: false
 
   /path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
