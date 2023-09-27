@@ -1,0 +1,9 @@
+@font-face {
+  font-family: yahei;
+  src: url('./MicrosoftYaHei-01.woff2');
+}
+
+h1 {
+  color: red;
+  font-family: yahei;
+}
