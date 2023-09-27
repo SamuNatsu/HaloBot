@@ -8,7 +8,7 @@ export const schema: joi.ObjectSchema = joi
       .object({
         namespace: joi
           .string()
-          .pattern(/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9]*)*$/)
+          .pattern(/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/)
           .required(),
         name: joi.string().required(),
         author: joi.string().required(),

@@ -17,6 +17,9 @@ logger.info('Worker 线程已启动');
 process.on('uncaughtException', (error: Error): void => {
   logger.error('检测到未被捕获的错误', error);
 });
+process.on('unhandledRejection', (reason: unknown): void => {
+  logger.error('检测到未被捕获的异步错误', reason);
+});
 
 try {
   logger.info('正在实例化 HaloBot');
@@ -33,5 +36,7 @@ try {
   await bot.start();
 } catch (err: unknown) {
   logger.fatal('无法实例化 HaloBot', err);
-  process.exit(1);
+  setTimeout((): never => {
+    process.exit(1);
+  }, 1000);
 }
