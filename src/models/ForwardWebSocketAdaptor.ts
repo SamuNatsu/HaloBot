@@ -6,7 +6,12 @@ import {
   Adaptor,
   AdaptorPromiseCallbacks
 } from './Adaptor';
-import JSONbig from 'json-bigint';
+import JB from 'json-bigint';
+
+const JSONbig = JB({
+  useNativeBigInt: true,
+  alwaysParseAsBig: true
+});
 
 /* Export class */
 export class ForwardWebSocketAdaptor extends Adaptor {
@@ -25,7 +30,7 @@ export class ForwardWebSocketAdaptor extends Adaptor {
       ): void => {
         const echo: number = this.getNextSerialNumber();
         this.promiseMap.set(echo, { resolve, reject });
-        this.socket.send(JSON.stringify({ action, params, echo }));
+        this.socket.send(JSONbig.stringify({ action, params, echo }));
       }
     );
   }
@@ -59,7 +64,7 @@ export class ForwardWebSocketAdaptor extends Adaptor {
             const json: ActionResponse = JSONbig.parse(raw.toString());
             if (json.echo !== undefined) {
               const callbacks: AdaptorPromiseCallbacks | undefined =
-                ret.promiseMap.get(json.echo);
+                ret.promiseMap.get(Number(json.echo));
               ret.promiseMap.delete(json.echo);
               if (callbacks === undefined) {
                 throw new Error('Echo lost');
