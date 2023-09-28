@@ -21,8 +21,7 @@ export class Logger {
       if (i instanceof Error) {
         str += chalk.gray(i.stack ?? `${i.name}: ${i.message}`);
       } else if (typeof i === 'string') {
-        str += i;
-        str += '\n';
+        str += chalk.gray(i);
       } else {
         str += chalk.gray(JSON.stringify(i, undefined, 2));
       }
