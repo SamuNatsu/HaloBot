@@ -39,6 +39,7 @@ import { Plugin } from '../interfaces/Plugin';
 import { schema as pluginSchema } from '../schemas/Plugin';
 import JB from 'json-bigint';
 import knex, { Knex } from 'knex';
+import { GroupMessageEvent } from '../interfaces/message_event';
 
 /* Special JSON */
 const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
@@ -420,13 +421,16 @@ export class Bot {
       await this.adaptor.send('send_private_forward_msg', { user_id, messages })
     ).data;
   }
-  public async getGroupMsgHistory(group_id: bigint, message_seq?: bigint) {
+  public async getGroupMsgHistory(
+    group_id: bigint,
+    message_seq?: bigint
+  ): Promise<GroupMessageEvent[]> {
     return (
       await this.adaptor.send('get_group_msg_history', {
         group_id,
         message_seq
       })
-    ).data;
+    ).data.messages;
   }
 
   /* Image APIs */
