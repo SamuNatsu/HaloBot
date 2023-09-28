@@ -7,7 +7,7 @@ export interface ActionResponse {
   msg?: string;
   wording?: string;
   data: any;
-  echo: number;
+  echo: string;
 }
 export interface AdaptorPromiseCallbacks {
   resolve: (value: ActionResponse) => void;
@@ -29,15 +29,15 @@ export class ActionError extends Error {
 }
 export class Adaptor {
   /* Serial number system */
-  private serialNumber: number = 0;
-  protected getNextSerialNumber(): number {
-    const next: number = this.serialNumber;
-    this.serialNumber = (this.serialNumber + 1) & 0x7fffffff;
-    return next;
+  private serialNumber: bigint = 0n;
+  protected getNextSerialNumber(): string {
+    const next: bigint = this.serialNumber;
+    this.serialNumber = this.serialNumber + 1n;
+    return String(next);
   }
 
   /* Promise system */
-  protected promiseMap: Map<number, AdaptorPromiseCallbacks> = new Map();
+  protected promiseMap: Map<string, AdaptorPromiseCallbacks> = new Map();
 
   /* Send and receive */
   public async send(
@@ -50,7 +50,7 @@ export class Adaptor {
       msg: 'Send method MUST be overwrote',
       wording: 'Send 方法必须被重写',
       data: undefined,
-      echo: -1
+      echo: '-1'
     };
   }
   public messageHandler: (res: any) => void = () => {};

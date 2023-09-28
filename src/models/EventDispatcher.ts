@@ -27,6 +27,7 @@ import {
   FriendRequestEvent,
   GroupRequestEvent
 } from '../interfaces/request_event';
+import { replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 
 /* Export class */
@@ -100,7 +101,8 @@ export class EventDispatcher {
           case 'private': {
             const tmp: PrivateMessageEvent = ev;
             this.logger.info(
-              `收到 ${tmp.sender.nickname}[${tmp.user_id}] 的消息 (${tmp.message_id}): ${tmp.raw_message}`
+              `收到 ${tmp.sender.nickname}[${tmp.user_id}] 的消息 (${tmp.message_id})`,
+              replaceWhitespaces(tmp.raw_message)
             );
             this.relay('onPrivateMessage', tmp);
             break;
@@ -112,7 +114,8 @@ export class EventDispatcher {
                 tmp.sender.card?.length === 0
                   ? tmp.sender.nickname
                   : tmp.sender.card
-              }[${tmp.user_id}] 的消息 (${tmp.message_id}): ${tmp.raw_message}`
+              }[${tmp.user_id}] 的消息 (${tmp.message_id})`,
+              replaceWhitespaces(tmp.raw_message)
             );
             this.relay('onGroupMessage', tmp);
             break;
@@ -268,10 +271,8 @@ export class EventDispatcher {
           case 'friend': {
             const tmp: FriendRequestEvent = ev;
             this.logger.info(
-              `收到 [${tmp.user_id}] 的好友请求: ${tmp.comment.replace(
-                /\s+/g,
-                ' '
-              )}`
+              `收到 [${tmp.user_id}] 的好友请求`,
+              replaceWhitespaces(tmp.comment)
             );
             this.relay('onFriendRequest', tmp);
             break;
@@ -281,7 +282,8 @@ export class EventDispatcher {
             this.logger.info(
               `收到 [${tmp.user_id}] 的加群 [${tmp.group_id}] ${
                 tmp.sub_type === 'add' ? '请求' : '邀请'
-              }: ${tmp.comment.replace(/\s+/g, ' ')}`
+              }`,
+              replaceWhitespaces(tmp.comment)
             );
             this.relay('onGroupRequest', tmp);
             break;

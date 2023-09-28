@@ -28,7 +28,7 @@ export class ForwardWebSocketAdaptor extends Adaptor {
         resolve: (value: ActionResponse) => void,
         reject: (reason?: any) => void
       ): void => {
-        const echo: number = this.getNextSerialNumber();
+        const echo: string = this.getNextSerialNumber();
         this.promiseMap.set(echo, { resolve, reject });
         this.socket.send(JSONbig.stringify({ action, params, echo }));
       }
@@ -64,7 +64,7 @@ export class ForwardWebSocketAdaptor extends Adaptor {
             const json: ActionResponse = JSONbig.parse(raw.toString());
             if (json.echo !== undefined) {
               const callbacks: AdaptorPromiseCallbacks | undefined =
-                ret.promiseMap.get(Number(json.echo));
+                ret.promiseMap.get(json.echo);
               ret.promiseMap.delete(json.echo);
               if (callbacks === undefined) {
                 throw new Error('Echo lost');

@@ -40,6 +40,19 @@ export interface UnidirectionalFriendInfo {
   source: string;
 }
 
+export interface ForwardMessage {
+  content: string;
+  sender: {
+    nickname: string;
+    user_id: bigint;
+  };
+  time: bigint;
+}
+export interface ForwardMessageInfo {
+  message_id: bigint;
+  forward_id: string;
+}
+
 export interface MsgInfo {
   group: boolean;
   group_id?: bigint;

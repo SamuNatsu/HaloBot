@@ -20,6 +20,9 @@ export class Logger {
     for (const i of args) {
       if (i instanceof Error) {
         str += chalk.gray(i.stack ?? `${i.name}: ${i.message}`);
+      } else if (typeof i === 'string') {
+        str += i;
+        str += '\n';
       } else {
         str += chalk.gray(JSON.stringify(i, undefined, 2));
       }

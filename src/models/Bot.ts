@@ -1,5 +1,7 @@
 /// Bot model
 import {
+  ForwardMessage,
+  ForwardMessageInfo,
   FriendInfo,
   GroupAtAllRemain,
   GroupEssenceMsg,
@@ -35,6 +37,11 @@ import { EventDispatcher } from './EventDispatcher';
 import { CallCustomEvent } from '../interfaces/custom_event';
 import { Plugin } from '../interfaces/Plugin';
 import { schema as pluginSchema } from '../schemas/Plugin';
+import JB from 'json-bigint';
+import knex, { Knex } from 'knex';
+
+/* Special JSON */
+const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
 
 /* Export class */
 export class Bot {
@@ -81,6 +88,7 @@ export class Bot {
     const ret: Bot = new Bot(config, adaptor);
     adaptor.messageHandler = ret.dispatcher.dispatch.bind(ret.dispatcher);
     await ret.loadPlugins();
+    Object.seal(ret);
 
     ret.logger.info('HaloBot 实例化成功');
     return ret;
@@ -198,20 +206,66 @@ export class Bot {
     process.exit(0);
   }
 
+  /* HaloBot control API */
+  public get control() {
+    return {
+      restartBot: async (): Promise<void> => {
+        this.logger.info('请求重启 HaloBot');
+        await this.stopPlugins();
+        process.exit(128);
+      },
+      restartPlugins: async (): Promise<void> => {
+        this.logger.info('请求重启插件');
+        await this.stopPlugins();
+        await this.startPlugins();
+        this.logger.info('插件已重启');
+      }
+    };
+  }
+
+  /* HaloBot utils API */
+  public get utils() {
+    return {
+      getCurrentPluginDir: (): string => {
+        return getDirname();
+      },
+      readJsonFile: (path: string, intAsBigInt: boolean = false): any => {
+        const raw: string = fs.readFileSync(path, 'utf-8');
+        return intAsBigInt ? JSONbig.parse(raw) : JSON.parse(raw);
+      },
+      saveJsonFile: (
+        path: string,
+        data: any,
+        prettify: boolean = false
+      ): void => {
+        fs.writeFileSync(
+          path,
+          JSONbig.stringify(data, undefined, prettify ? 2 : undefined)
+        );
+      },
+      readYamlFile: (path: string, intAsBigInt: boolean = false): any => {
+        const raw: string = fs.readFileSync(path, 'utf-8');
+        return intAsBigInt ? YAML.parse(raw, { intAsBigInt }) : YAML.parse(raw);
+      },
+      saveYamlFile: (path: string, data: any): void => {
+        fs.writeFileSync(path, YAML.stringify(data));
+      },
+      openDB: (options: Knex.Config): Knex => {
+        return knex(options);
+      },
+      openCurrentPluginDB: (): Knex => {
+        return knex({
+          client: 'better-sqlite3',
+          useNullAsDefault: true,
+          connection: {
+            filename: path.join(getDirname(), './plugin.db')
+          }
+        });
+      }
+    };
+  }
+
   /* Halo APIs */
-  public async restartBot(): Promise<void> {
-    this.logger.info('请求重启 HaloBot');
-    await this.stopPlugins();
-    process.exit(128);
-  }
-  public async restartPlugins(): Promise<void> {
-    this.logger.info('请求重启插件');
-
-    await this.stopPlugins();
-    await this.startPlugins();
-
-    this.logger.info('插件已重启');
-  }
   public callPluginMethod(
     method_name: string,
     params: any,
@@ -346,10 +400,34 @@ export class Bot {
   public async markMsgAsRead(message_id: bigint): Promise<void> {
     await this.adaptor.send('mark_msg_as_read', { message_id });
   }
-  public async getForwardMsg() {}
-  public async sendGroupForwardMsg() {}
-  public async sendPrivateForwardMsg() {}
-  public async getGroupMsgHistory() {}
+  public async getForwardMsg(message_id: bigint): Promise<ForwardMessage[]> {
+    return (await this.adaptor.send('get_forward_msg', { message_id })).data
+      .messages;
+  }
+  public async sendGroupForwardMsg(
+    group_id: bigint,
+    messages: any
+  ): Promise<ForwardMessageInfo> {
+    return (
+      await this.adaptor.send('send_group_forward_msg', { group_id, messages })
+    ).data;
+  }
+  public async sendPrivateForwardMsg(
+    user_id: bigint,
+    messages: any
+  ): Promise<ForwardMessageInfo> {
+    return (
+      await this.adaptor.send('send_private_forward_msg', { user_id, messages })
+    ).data;
+  }
+  public async getGroupMsgHistory(group_id: bigint, message_seq?: bigint) {
+    return (
+      await this.adaptor.send('get_group_msg_history', {
+        group_id,
+        message_seq
+      })
+    ).data;
+  }
 
   /* Image APIs */
   public async getImage(file: string): Promise<ImageFileInfo> {
@@ -370,7 +448,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async canSendRecord(): Promise<boolean> {
@@ -660,7 +738,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async getCsrfToken(): Promise<never> {
@@ -670,7 +748,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async getCredentials(): Promise<never> {
@@ -680,7 +758,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async getVersionInfo(): Promise<VersionInfo> {
@@ -696,7 +774,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async cleanCache(): Promise<never> {
@@ -706,7 +784,7 @@ export class Bot {
       msg: 'Not supported by Go-CqHttp',
       wording: 'Go-CqHttp 未支持该 API',
       data: undefined,
-      echo: -1
+      echo: '-1'
     });
   }
   public async reloadEventFilter(file: string): Promise<void> {
