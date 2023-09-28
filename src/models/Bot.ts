@@ -227,8 +227,8 @@ export class Bot {
   /* HaloBot utils API */
   public get utils() {
     return {
-      getCurrentPluginDir: (): string => {
-        return getDirname();
+      getCurrentPluginDir: (metaUrl: string): string => {
+        return getDirname(metaUrl);
       },
       readJsonFile: (path: string, intAsBigInt: boolean = false): any => {
         const raw: string = fs.readFileSync(path, 'utf-8');
@@ -254,12 +254,12 @@ export class Bot {
       openDB: (options: Knex.Config): Knex => {
         return knex(options);
       },
-      openCurrentPluginDB: (): Knex => {
+      openCurrentPluginDB: (metaUrl: string): Knex => {
         return knex({
           client: 'better-sqlite3',
           useNullAsDefault: true,
           connection: {
-            filename: path.join(getDirname(), './plugin.db')
+            filename: path.join(getDirname(metaUrl), './plugin.db')
           }
         });
       }

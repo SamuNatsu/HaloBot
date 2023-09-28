@@ -2,8 +2,8 @@
 import url from 'url';
 import path from 'path';
 
-export function getDirname(): string {
-  return path.dirname(url.fileURLToPath(import.meta.url));
+export function getDirname(metaUrl?: string): string {
+  return path.dirname(url.fileURLToPath(metaUrl ?? import.meta.url));
 }
 
 export function replaceWhitespaces(str: string): string {
