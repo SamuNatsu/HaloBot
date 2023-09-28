@@ -207,23 +207,6 @@ export class Bot {
     process.exit(0);
   }
 
-  /* HaloBot control API */
-  public get control() {
-    return {
-      restartBot: async (): Promise<void> => {
-        this.logger.info('请求重启 HaloBot');
-        await this.stopPlugins();
-        process.exit(128);
-      },
-      restartPlugins: async (): Promise<void> => {
-        this.logger.info('请求重启插件');
-        await this.stopPlugins();
-        await this.startPlugins();
-        this.logger.info('插件已重启');
-      }
-    };
-  }
-
   /* HaloBot utils API */
   public get utils() {
     return {
@@ -262,6 +245,31 @@ export class Bot {
             filename: path.join(getDirname(metaUrl), './plugin.db')
           }
         });
+      }
+    };
+  }
+
+  /* Halo debug API */
+  public get debug() {
+    return {
+      pushEvent: (ev: any): void => {
+        this.logger.debug('用户推送了一个自定义事件', ev);
+        this.dispatcher.dispatch(ev);
+      },
+      getPluginMetas: (): Plugin['meta'][] => {
+        this.logger.debug('用户请求了插件元信息表');
+        return this.plugins.map((value: Plugin): Plugin['meta'] => value.meta);
+      },
+      restartBot: async (): Promise<void> => {
+        this.logger.debug('请求重启 HaloBot');
+        await this.stopPlugins();
+        process.exit(128);
+      },
+      restartPlugins: async (): Promise<void> => {
+        this.logger.debug('请求重启插件');
+        await this.stopPlugins();
+        await this.startPlugins();
+        this.logger.debug('插件已重启');
       }
     };
   }

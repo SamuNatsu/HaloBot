@@ -120,6 +120,8 @@ export class EventDispatcher {
             this.relay('onGroupMessage', tmp);
             break;
           }
+          default:
+            this.logger.error('检测到未知的消息上报', ev);
         }
         break;
       case 'notice':
@@ -232,6 +234,8 @@ export class EventDispatcher {
                 this.relay('onGroupTitle', tmp);
                 break;
               }
+              default:
+                this.logger.error('检测到未知的通知上报', ev);
             }
             break;
           case 'group_card': {
@@ -264,6 +268,8 @@ export class EventDispatcher {
             this.relay('onGroupEssence', tmp);
             break;
           }
+          default:
+            this.logger.error('检测到未知的通知上报', ev);
         }
         break;
       case 'request':
@@ -288,6 +294,8 @@ export class EventDispatcher {
             this.relay('onGroupRequest', tmp);
             break;
           }
+          default:
+            this.logger.error('检测到未知的请求上报', ev);
         }
         break;
       case 'meta_event':
@@ -309,6 +317,8 @@ export class EventDispatcher {
             this.relay('onLifecycle', tmp);
             break;
           }
+          default:
+            this.logger.error('检测到未知的元事件上报', ev);
         }
         break;
       case 'custom_event': {
@@ -326,9 +336,13 @@ export class EventDispatcher {
             }
             break;
           }
+          default:
+            this.logger.error('检测到未知的自定义事件上报', ev);
         }
         break;
       }
+      default:
+        this.logger.error('检测到未知的上报', ev);
     }
   }
 }
