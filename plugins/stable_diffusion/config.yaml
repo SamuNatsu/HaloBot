@@ -1,0 +1,46 @@
+# 插件管理员 QQ 号
+# 一个字符串
+# 只有插件管理员有权使用 [#sd help manage] 下的命令，以及查看相关管理命令，插件管理员只能在私聊中管理插件
+manager: ''
+
+# WebUI API 链接
+# 一个字符串
+# 填入你的 WebUI API 链接，记得在启动 StableDiffusion 时打开 --api 参数
+api: http://127.0.0.1:7860
+
+# 生成队列大小
+# 一个正整数，默认为 5
+# 由于 WebUI 一次只能生成一张图片，所以需要一个队列来缓存生成请求
+# queue_size: 5
+
+# Lora 列表分页长度
+# 一个正整数，默认为 10
+# 如果你的 Lora 很多，那么这个选项可以帮你分页，防止在移动端等小型设备上消息过长
+# lora_page_size: 10
+
+# Checkpoint 模型名称
+# 一个字符串
+# 你可以通过 "/sdapi/v1/sd-models" 查询模型列表并将你要使用的模型的 model_name 填写在下面
+model_name: ''
+
+# 采样器名称
+# 一个字符串
+# 你可以通过 "/sdapi/v1/samplers" 查询采样器列表并将你要使用的采样器的 name 填写在下面
+sampler_name: ''
+
+# 附加正向提示词
+# 一个字符串，默认为空
+# prepend_prompt: ''
+
+# 附加负向提示词
+# 一个字符串，默认为空
+# prepend_negative_prompt: ''
+
+# SFW 模式下的附加反向提示词
+# 一个字符串，默认为空
+# 在 SFW 群聊里这些提示词会被自动添加以一定程度上阻止 NSFW 内容生成
+# sfw_prepend_negative_prompt: ''
+
+# Hires.fix 采样器名称
+# 一个字符串
+hires_sampler_name: ''
