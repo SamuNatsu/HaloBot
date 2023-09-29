@@ -30,12 +30,12 @@ import { Config } from '../interfaces/Config';
 import YAML from 'yaml';
 import { ActionError, Adaptor } from './Adaptor';
 import { ForwardWebSocketAdaptor } from './ForwardWebSocketAdaptor';
-import { getDirname } from '../utils';
+import { getDirname, replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 import { schema as configSchema } from '../schemas/Config';
 import { EventDispatcher } from './EventDispatcher';
 import { CallCustomEvent } from '../interfaces/custom_event';
-import { Plugin } from '../interfaces/Plugin';
+import { InjectedPlugin } from '../interfaces/Plugin';
 import { schema as pluginSchema } from '../schemas/Plugin';
 import JB from 'json-bigint';
 import knex, { Knex } from 'knex';
@@ -96,7 +96,7 @@ export class Bot {
   }
 
   /* Plugins */
-  private plugins: Plugin[] = [];
+  private plugins: InjectedPlugin[] = [];
   private async loadPlugins(): Promise<void> {
     this.logger.debug('正在加载插件列表');
 
@@ -109,11 +109,16 @@ export class Bot {
 
     const pluginEntries: string[] = [];
     fs.readdirSync(pluginDir).forEach((value: string): void => {
+      if (value.startsWith('_')) {
+        return;
+      }
+
       const p: string = path.join(pluginDir, value);
       const s: fs.Stats = fs.statSync(p);
       if (!s.isDirectory()) {
         return;
       }
+
       const pm: string = path.join(p, 'index.js');
       const sm: fs.Stats = fs.statSync(pm);
       if (!sm.isFile()) {
@@ -124,12 +129,29 @@ export class Bot {
 
     for (const i of pluginEntries) {
       try {
-        const plugin: Plugin = (await import('file://' + i)).default;
-
+        const plugin: InjectedPlugin = (await import('file://' + i)).default;
         const { error } = pluginSchema.validate(plugin);
         if (error !== undefined) {
           throw error;
         }
+
+        Object.defineProperties(plugin, {
+          bot: {
+            value: this,
+            writable: false,
+            configurable: false
+          },
+          logger: {
+            value: new Logger(plugin.meta.name),
+            writable: false,
+            configurable: false
+          },
+          currentPluginDir: {
+            value: path.dirname(i),
+            writable: false,
+            configurable: false
+          }
+        });
 
         this.plugins.push(plugin);
         this.logger.trace(
@@ -142,7 +164,8 @@ export class Bot {
 
     this.logger.debug('正在按照优先级排序插件');
     this.plugins.sort(
-      (a: Plugin, b: Plugin): number => a.meta.priority - b.meta.priority
+      (a: InjectedPlugin, b: InjectedPlugin): number =>
+        a.meta.priority - b.meta.priority
     );
   }
   private async startPlugins(): Promise<void> {
@@ -150,7 +173,7 @@ export class Bot {
     for (const i of this.plugins) {
       try {
         if (i.onStart !== undefined) {
-          await i.onStart(this, new Logger(`Plugin:${i.meta.name}`));
+          await i.onStart();
         }
         this.dispatcher.register(i);
         this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已启动`);
@@ -210,9 +233,6 @@ export class Bot {
   /* HaloBot utils API */
   public get utils() {
     return {
-      getCurrentPluginDir: (metaUrl: string): string => {
-        return getDirname(metaUrl);
-      },
       readJsonFile: (path: string, intAsBigInt: boolean = false): any => {
         const raw: string = fs.readFileSync(path, 'utf-8');
         return intAsBigInt ? JSONbig.parse(raw) : JSON.parse(raw);
@@ -235,9 +255,11 @@ export class Bot {
         fs.writeFileSync(path, YAML.stringify(data));
       },
       openDB: (options: Knex.Config): Knex => {
+        this.logger.info('用户请求打开数据库', options);
         return knex(options);
       },
       openCurrentPluginDB: (metaUrl: string): Knex => {
+        this.logger.info('用户请求打开本地插件数据库');
         return knex({
           client: 'better-sqlite3',
           useNullAsDefault: true,
@@ -256,20 +278,21 @@ export class Bot {
         this.logger.debug('用户推送了一个自定义事件', ev);
         this.dispatcher.dispatch(ev);
       },
-      getPluginMetas: (): Plugin['meta'][] => {
-        this.logger.debug('用户请求了插件元信息表');
-        return this.plugins.map((value: Plugin): Plugin['meta'] => value.meta);
+      getPluginMetas: (): InjectedPlugin['meta'][] => {
+        this.logger.debug('用户请求插件元信息表');
+        return this.plugins.map(
+          (value: InjectedPlugin): InjectedPlugin['meta'] => value.meta
+        );
       },
       restartBot: async (): Promise<void> => {
-        this.logger.debug('请求重启 HaloBot');
+        this.logger.debug('用户请求重启 HaloBot');
         await this.stopPlugins();
         process.exit(128);
       },
       restartPlugins: async (): Promise<void> => {
-        this.logger.debug('请求重启插件');
+        this.logger.debug('用户请求重启插件');
         await this.stopPlugins();
         await this.startPlugins();
-        this.logger.debug('插件已重启');
       }
     };
   }
@@ -362,6 +385,17 @@ export class Bot {
     auto_escape?: boolean,
     group_id?: bigint
   ): Promise<bigint> {
+    if (group_id === undefined) {
+      this.logger.info(
+        `向 [${user_id}] 发送了消息`,
+        replaceWhitespaces(message)
+      );
+    } else {
+      this.logger.info(
+        `向群 [${group_id}] 内 [${user_id}] 发送了消息`,
+        replaceWhitespaces(message)
+      );
+    }
     return (
       await this.adaptor.send('send_private_msg', {
         user_id,
@@ -376,6 +410,10 @@ export class Bot {
     message: string,
     auto_escape?: boolean
   ): Promise<bigint> {
+    this.logger.info(
+      `向群 [${group_id}] 发送了消息`,
+      replaceWhitespaces(message)
+    );
     return (
       await this.adaptor.send('send_group_msg', {
         group_id,
@@ -390,6 +428,11 @@ export class Bot {
     message: string,
     auto_escape?: boolean
   ): Promise<bigint> {
+    if (message_type === 'private') {
+      this.logger.info(`向 [${id}] 发送了消息`, replaceWhitespaces(message));
+    } else {
+      this.logger.info(`向群 [${id}] 发送了消息`, replaceWhitespaces(message));
+    }
     return (
       await this.adaptor.send('send_msg', {
         message_type,

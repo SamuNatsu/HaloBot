@@ -44,13 +44,9 @@ export default definePlugin({
       this.logger.debug('浏览器已关闭');
     }
   },
-  async onStart(bot, logger) {
-    this.bot = bot;
-    this.logger = logger;
-    this.curdir = bot.utils.getCurrentPluginDir(import.meta.url);
-
-    this.config = bot.utils.readYamlFile(
-      path.join(this.curdir, './config.yaml')
+  async onStart() {
+    this.config = this.bot.utils.readYamlFile(
+      path.join(this.currentPluginDir, './config.yaml')
     );
     const { error } = configSchema.validate(this.config);
     if (error !== undefined) {
@@ -58,10 +54,10 @@ export default definePlugin({
     }
 
     if (this.config.mode === 'keep_alive') {
-      logger.info('HTML 渲染器将运行在保活模式下');
+      this.logger.info('HTML 渲染器将运行在保活模式下');
       this.createBrowser();
     } else {
-      logger.info('HTML 渲染器将运行在瞬时模式下');
+      this.logger.info('HTML 渲染器将运行在瞬时模式下');
     }
   },
   async onStop() {
@@ -84,13 +80,6 @@ export default definePlugin({
             await this.createBrowser();
           }
           const page = await this.browser.newPage();
-
-          if (ev.params.styles !== undefined) {
-            for (const i of ev.params.styles) {
-              this.logger.trace(`add style tag: ${i}`);
-              await page.addStyleTag({ path: i });
-            }
-          }
 
           await page.setViewport(ev.params.viewport);
           if (ev.params.type === 'file') {

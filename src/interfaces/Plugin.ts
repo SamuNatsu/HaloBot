@@ -33,9 +33,17 @@ import {
 import { Bot } from '../models/Bot';
 import { Logger } from '../models/Logger';
 
-/* Export interface */
+/* Export interfaces */
 export interface Plugin {
-  [key: string]: any;
+  [key: string]:
+    | string
+    | number
+    | bigint
+    | boolean
+    | symbol
+    | undefined
+    | object
+    | ((this: InjectedPlugin, ...args: any[]) => any);
 
   /* Properties */
   meta: {
@@ -49,42 +57,56 @@ export interface Plugin {
   };
 
   /* Lifecycle */
-  onStart?(bot: Bot, logger: Logger): void | Promise<void>;
-  onStop?(): void | Promise<void>;
+  onStart?(this: InjectedPlugin): void | Promise<void>;
+  onStop?(this: InjectedPlugin): void | Promise<void>;
 
   /* Message */
-  onGroupMessage?(ev: GroupMessageEvent): void;
-  onPrivateMessage?(ev: PrivateMessageEvent): void;
+  onGroupMessage?(this: InjectedPlugin, ev: GroupMessageEvent): void;
+  onPrivateMessage?(this: InjectedPlugin, ev: PrivateMessageEvent): void;
 
   /* Notice */
-  onClientStatus?(ev: ClientStatusNoticeEvent): void;
+  onClientStatus?(this: InjectedPlugin, ev: ClientStatusNoticeEvent): void;
 
-  onPoke?(ev: PokeNotifyNoticeEvent): void;
+  onPoke?(this: InjectedPlugin, ev: PokeNotifyNoticeEvent): void;
 
-  onFriendAdd?(ev: FriendAddNoticeEvent): void;
-  onFriendOfflineFile?(ev: FriendOfflineFileNoticeEvent): void;
-  onFriendRecall?(ev: FriendRecallNoticeEvent): void;
+  onFriendAdd?(this: InjectedPlugin, ev: FriendAddNoticeEvent): void;
+  onFriendOfflineFile?(
+    this: InjectedPlugin,
+    ev: FriendOfflineFileNoticeEvent
+  ): void;
+  onFriendRecall?(this: InjectedPlugin, ev: FriendRecallNoticeEvent): void;
 
-  onGroupAdmin?(ev: GroupAdminNoticeEvent): void;
-  onGroupBan?(ev: GroupBanNoticeEvent): void;
-  onGroupCard?(ev: GroupCardNoticeEvent): void;
-  onGroupDecrease?(ev: GroupDecreaseNoticeEvent): void;
-  onGroupEssence?(ev: GroupEssenceNoticeEvent): void;
-  onGroupHonor?(ev: GroupHonorNotifyNoticeEvent): void;
-  onGroupIncrease?(ev: GroupIncreaseNoticeEvent): void;
-  onGroupLuckyKing?(ev: GroupLuckyKingNotifyNoticeEvent): void;
-  onGroupUpload?(ev: GroupUploadNoticeEvent): void;
-  onGroupRecall?(ev: GroupRecallNoticeEvent): void;
-  onGroupTitle?(ev: GroupTitleNotifyNoticeEvent): void;
+  onGroupAdmin?(this: InjectedPlugin, ev: GroupAdminNoticeEvent): void;
+  onGroupBan?(this: InjectedPlugin, ev: GroupBanNoticeEvent): void;
+  onGroupCard?(this: InjectedPlugin, ev: GroupCardNoticeEvent): void;
+  onGroupDecrease?(this: InjectedPlugin, ev: GroupDecreaseNoticeEvent): void;
+  onGroupEssence?(this: InjectedPlugin, ev: GroupEssenceNoticeEvent): void;
+  onGroupHonor?(this: InjectedPlugin, ev: GroupHonorNotifyNoticeEvent): void;
+  onGroupIncrease?(this: InjectedPlugin, ev: GroupIncreaseNoticeEvent): void;
+  onGroupLuckyKing?(
+    this: InjectedPlugin,
+    ev: GroupLuckyKingNotifyNoticeEvent
+  ): void;
+  onGroupUpload?(this: InjectedPlugin, ev: GroupUploadNoticeEvent): void;
+  onGroupRecall?(this: InjectedPlugin, ev: GroupRecallNoticeEvent): void;
+  onGroupTitle?(this: InjectedPlugin, ev: GroupTitleNotifyNoticeEvent): void;
 
   /* Request */
-  onFriendRequest?(ev: FriendRequestEvent): void;
-  onGroupRequest?(ev: GroupRequestEvent): void;
+  onFriendRequest?(this: InjectedPlugin, ev: FriendRequestEvent): void;
+  onGroupRequest?(this: InjectedPlugin, ev: GroupRequestEvent): void;
 
   /* Meta event */
-  onHeartbeat?(ev: HeartbeatMetaEvent): void;
-  onLifecycle?(ev: LifecycleMetaEvent): void;
+  onHeartbeat?(this: InjectedPlugin, ev: HeartbeatMetaEvent): void;
+  onLifecycle?(this: InjectedPlugin, ev: LifecycleMetaEvent): void;
 
   /* Custom event */
-  onCall?(ev: CallCustomEvent): void;
+  onCall?(this: InjectedPlugin, ev: CallCustomEvent): void;
 }
+
+interface InjectedPluginProperties {
+  readonly bot: Bot;
+  readonly logger: Logger;
+  readonly currentPluginDir: string;
+}
+
+export type InjectedPlugin = Plugin & InjectedPluginProperties;

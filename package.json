@@ -3,7 +3,6 @@
   "version": "2.0.0",
   "description": "",
   "main": "dist/HaloBot.min.mjs",
-  "module": "dist/HaloBot.min.mjs",
   "types": "dist/HaloBotPlugin.d.ts",
   "scripts": {
     "build": "bin/build.sh",

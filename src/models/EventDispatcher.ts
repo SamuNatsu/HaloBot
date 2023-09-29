@@ -87,7 +87,7 @@ export class EventDispatcher {
       }
       this.listenerMap
         .get(i)
-        ?.push([plugin.meta.namespace, plugin[i].bind(plugin)]);
+        ?.push([plugin.meta.namespace, (plugin[i] as Function).bind(plugin)]);
     }
   }
   public clear(): void {
