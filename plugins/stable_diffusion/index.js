@@ -134,9 +134,7 @@ export default definePlugin({
             loraAliasMap.set(value.alias, value.name);
           }
         });
-        this.logger.info(
-          `Lora 分类 "${lora.category_name}" 已加载`
-        );
+        this.logger.info(`Lora 分类 "${lora.category_name}" 已加载`);
       } catch (err) {
         this.logger.error(`Lora 文件解析失败: ${filePath}`, err);
       }
@@ -148,6 +146,65 @@ export default definePlugin({
     this.loraMap = loraMap;
     this.loraNameSet = loraNameSet;
     this.loraAliasMap = loraAliasMap;
+  },
+  getLoraPage(page, nsfw = true) {
+    const ct = Object.entries(this.loraCategory)
+      .map((value) => [
+        value[0],
+        this.loraList
+          .slice(value[1][0], value[1][1])
+          .filter((value) => !value.nsfw || nsfw)
+      ])
+      .filter((value) => value[1].length !== 0)
+      .map((value) => {
+        const pg = Math.ceil(value[1].length / this.config.lora_page_size);
+        const ret = [];
+        for (let i = 0; i < pg; i++) {
+          const sub = value[1].slice(
+            i * this.config.lora_page_size,
+            (i + 1) * this.config.lora_page_size
+          );
+          ret.push(
+            sub.map((value) => `${value.lora}${value.nsfw ? '🔞' : ''}`)
+          );
+        }
+        return { category: value[0], list: ret };
+      });
+    const tot = 1 + ct.reduce((value, cur) => value + cur.list.length, 0);
+    let pgs = [`【Lora 分类目录】\n`];
+    let acc = 1;
+    let bcc = 2;
+    ct.forEach((v1) => {
+      pgs[0] += `${v1.category}：${bcc} 到 ${bcc + v1.list.length - 1} 页\n`;
+      v1.list.forEach((v2) => {
+        pgs.push(
+          `【Lora 列表】\n${v2
+            .map((value, idx) => `[${acc + idx}] ${value}`)
+            .join('\n')}`
+        );
+        acc += v2.length;
+      });
+      bcc += v1.list.length;
+    });
+    pgs[0] = pgs[0].trim();
+    return pgs[page];
+  },
+  getLoraInfo(ord, nsfw = true) {
+    const ls = this.loraList.filter((value) => !value.nsfw || nsfw);
+    if (ord >= ls.length) {
+      return null;
+    }
+    return `【Lora 信息】\n名字：${ls[ord].lora}${
+      ls[ord].nsfw ? '🔞' : ''
+    }\n全名：${ls[ord].name}${
+      ls[ord].alias !== undefined ? `\n别名：${ls[ord].alias}` : ''
+    }${
+      ls[ord].tokens !== undefined
+        ? `\n触发词列表：\n${Object.entries(ls[ord].tokens)
+            .map((value) => `"${value[0]}"：${value[1]}`)
+            .join('\n')}`
+        : ''
+    }`;
   },
   loraAnalyzeAndReplace(prompt) {
     const found = [];
@@ -440,7 +497,7 @@ export default definePlugin({
           case 'lora':
             this.bot.sendPrivateMsg(
               ev.user_id,
-              `【Lora 帮助】\n建议在私聊里查看 Lora 信息以避免刷屏\n[#sd loras [页码]] 查看 Lora 列表的某一页\n[#sd lora <序号>] 查看某序号 Lora 的详细信息`
+              `【Lora 帮助】\n建议在私聊里查看 Lora 信息以避免刷屏\n[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录\n[#sd lora <序号>] 查看某序号 Lora 的详细信息`
             );
             break;
           case 'manage':
@@ -502,7 +559,7 @@ export default definePlugin({
         if (this.queue.length() >= this.config.queue_size) {
           this.bot.sendPrivateMsg(
             ev.user_id,
-            `等待队列已满，你的请求提交失败\n队列还有 ${this.queue.queue_size} 个正在等待`
+            `等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
           );
           return;
         }
@@ -564,7 +621,33 @@ export default definePlugin({
         this.queue.push(opt);
       });
 
-    /** loras, lora */
+    program
+      .command('loras')
+      .argument('[page]', undefined, '1')
+      .action((page) => {
+        page = parseInt(page);
+        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
+          this.bot.sendPrivateMsg(ev.user_id, `【Lora 列表】\n页码不合法`);
+          return;
+        }
+        if (page > this.loraTotalPage) {
+          this.bot.sendPrivateMsg(ev.user_id, `【Lora 列表】\n没有更多的页了`);
+          return;
+        }
+        this.bot.sendPrivateMsg(ev.user_id, this.getLoraPage(page - 1));
+      });
+
+    program
+      .command('lora')
+      .argument('<ord>')
+      .action((ord) => {
+        ord = parseInt(ord);
+        if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
+          this.bot.sendPrivateMsg(ev.user_id, `【Lora 信息】\n序号不合法`);
+          return;
+        }
+        this.bot.sendPrivateMsg(ev.user_id, this.getLoraInfo(ord - 1));
+      });
 
     program.command('groups').action(async () => {
       if (this.config.manager !== String(ev.user_id)) {
@@ -729,6 +812,242 @@ export default definePlugin({
         this.bot.sendPrivateMsg(
           ev.user_id,
           `【插件管理】\n群 [${groupId}] 的附加负向提示词已更新`
+        );
+      });
+
+    try {
+      program.parse(argv, { from: 'user' });
+    } catch (err) {
+      this.logger.error('命令解析错误', err);
+    }
+  },
+  async onGroupMessage(ev) {
+    // Check command
+    if (!ev.raw_message.startsWith('#sd')) {
+      return;
+    }
+
+    // Check group
+    const group = await this.getGroupRow(ev.group_id);
+    if (group === null) {
+      return;
+    }
+
+    const cmd = ev.raw_message.slice(3);
+    const argv = parse(cmd);
+    const program = new Command();
+    program.exitOverride();
+    program.configureOutput({
+      writeErr: () => {},
+      writeOut: () => {}
+    });
+
+    program.action(() => {
+      this.bot.sendGroupMsg(
+        ev.group_id,
+        `【StableDiffusion 插件】\nVer.${this.meta.version}\n欢迎使用 AI 绘图！\n你可以在私聊中以及授权的群里使用 AI 绘图功能。\n请使用命令 [#sd help] 查看帮助。`
+      );
+    });
+
+    program
+      .command('help')
+      .argument('[sub]')
+      .action((sub) => {
+        switch (sub) {
+          case undefined:
+            this.bot.sendGroupMsg(
+              ev.group_id,
+              `【插件帮助】\n[#sd help draw] 查看绘图帮助\n[#sd help lora] 查看 Lora 帮助`
+            );
+            break;
+          case 'draw':
+            this.bot.sendGroupMsg(
+              ev.group_id,
+              `【绘图帮助】\n建议在私聊里查看教程以避免刷屏\n[#sd tutorial [页码]] 查看绘图教程的某一页\n[#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
+            );
+            break;
+          case 'lora':
+            this.bot.sendGroupMsg(
+              ev.group_id,
+              `【Lora 帮助】\n建议在私聊里查看 Lora 信息以避免刷屏\n[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录\n[#sd lora <序号>] 查看某序号 Lora 的详细信息`
+            );
+            break;
+          default:
+            this.bot.sendGroupMsg(
+              ev.group_id,
+              `[CQ:at,qq=${ev.user_id}] 找不到名为 "${sub}" 的帮助子项`
+            );
+        }
+      });
+
+    program
+      .command('tutorial')
+      .argument('[page]', undefined, '1')
+      .action((page) => {
+        page = parseInt(page);
+        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 页码不合法`
+          );
+          return;
+        }
+        if (page > this.tutorials.length) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 没有更多的页了`
+          );
+          return;
+        }
+
+        this.bot.sendGroupMsg(
+          ev.group_id,
+          `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
+            page - 1
+          ].trim()}`
+        );
+      });
+
+    program
+      .command('draw')
+      .option('-p|--prompt <prompt>', undefined, '')
+      .option('-n|--negativePrompt <prompt>', undefined, '')
+      .option('-i|--iterationSteps <steps>', undefined, '25')
+      .option('-s|--seed <seed>')
+      .option('-r|--ratio <ratio>', undefined, '1:1')
+      .option('-h|--no-hires')
+      .option('-S|--scale <scale>', undefined, '2')
+      .option('-I|--iterSteps <steps>', undefined, '10')
+      .option('-d|--denoising <denoising>', undefined, '0.2')
+      .action(async (opt) => {
+        // Check queue
+        if (this.queue.length() >= this.config.queue_size) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
+          );
+          return;
+        }
+
+        // Validate
+        if (!/^(2[0-9]|3[0-9]|40)$/.test(opt.iterationSteps)) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 迭代步数 (-i) 参数不合法`
+          );
+          return;
+        }
+        opt.iterationSteps = parseInt(opt.iterationSteps);
+
+        if (opt.seed !== undefined) {
+          if (!/^(0|[1-9]\d*)$/.test(opt.seed)) {
+            this.bot.sendGroupMsg(
+              ev.group_id,
+              `[CQ:at,qq=${ev.user_id}] 种子 (-s) 参数不合法`
+            );
+            return;
+          }
+          opt.seed = parseInt(opt.seed);
+        }
+
+        if (!/^[1-9]\d*:[1-9]\d*$/.test(opt.ratio)) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 宽高比 (-r) 参数不合法`
+          );
+          return;
+        }
+
+        if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
+          );
+          return;
+        }
+        opt.scale = parseFloat(opt.scale);
+        if (opt.scale < 1 || opt.scale > 3) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
+          );
+          return;
+        }
+
+        if (!/^(0|1?\d|20)$/.test(opt.iterSteps)) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 迭代步数 (-I) 参数不合法`
+          );
+          return;
+        }
+        opt.iterSteps = parseInt(opt.iterSteps);
+
+        if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.denoising)) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
+          );
+          return;
+        }
+        opt.denoising = parseFloat(opt.denoising);
+        if (opt.denoising > 1) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
+          );
+          return;
+        }
+
+        // Push task
+        opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
+        opt.userId = ev.user_id;
+        opt.groupId = ev.group_id;
+
+        await this.bot.sendGroupMsg(
+          ev.group_id,
+          `[CQ:at,qq=${ev.user_id}] 生成请求已提交\n你是等待队列的第 ${
+            this.queue.length() + 1
+          } 个`
+        );
+        this.queue.push(opt);
+      });
+
+    program
+      .command('loras')
+      .argument('[page]', undefined, '1')
+      .action((page) => {
+        page = parseInt(page);
+        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 页码不合法`
+          );
+          return;
+        }
+        page = this.getLoraPage(page - 1, group.nsfw);
+        this.bot.sendGroupMsg(
+          ev.group_id,
+          page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`
+        );
+      });
+
+    program
+      .command('lora')
+      .argument('<ord>')
+      .action((ord) => {
+        ord = parseInt(ord);
+        if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
+          this.bot.sendGroupMsg(
+            ev.group_id,
+            `[CQ:at,qq=${ev.user_id}] 序号不合法`
+          );
+          return;
+        }
+        ord = this.getLoraInfo(ord - 1, group.nsfw);
+        this.bot.sendGroupMsg(
+          ev.group_id,
+          ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`
         );
       });
 
