@@ -6,6 +6,7 @@ import fs from 'fs';
 import joi from 'joi';
 import async from 'async';
 import moment from 'moment';
+import url from 'url';
 
 const loraPageLine = 10;
 
@@ -25,6 +26,7 @@ list:
   - lora: 测试 Lora  # Lora 的显示名称，必填
     name: test  # Lora 的调用名称，即 <lora:XXX:1> 中的那个 XXX，必填
     alias: test  # Lora 调用别名，有些调用名称特别长，所以插件提供了使用别名替换的功能，这是可选的
+    nsfw: false # Lora 是否为 NSFW，在 SFW 群聊里该 Lora 将不会出现在 Lora 列表中，但是你仍然可以使用它，默认为 false
     tokens: # Lora 触发词信息表，这是一个对象类型，键为触发词，值为描述信息，用于告诉用户需要哪些触发词来使用 Lora，这是可选的
       test1: 测试触发词 1
       test2: 测试触发词 2
@@ -44,7 +46,7 @@ const configSchema = joi.object({
   prepend_prompt: joi.string().allow('').default(''),
   prepend_negative_prompt: joi.string().allow('').default(''),
   sfw_prepend_negative_prompt: joi.string().allow('').default(''),
-  hires_sampler_name: joi.string().required()
+  upscaler_name: joi.string().required()
 });
 const loraSchema = joi.object({
   category_name: joi.string().required(),
@@ -54,6 +56,7 @@ const loraSchema = joi.object({
       lora: joi.string().required(),
       name: joi.string().required(),
       alias: joi.string(),
+      nsfw: joi.boolean().default(false),
       tokens: joi.object().pattern(/^.+$/, joi.string())
     })
     .required()
@@ -92,14 +95,15 @@ export default definePlugin({
         return;
       }
 
+      const filePath = path.join(loraDir, value);
       try {
         // Read category
-        const filePath = path.join(loraDir, value);
-        const lora = this.bot.utils.readYamlFile(filePath);
-        const { error } = loraSchema.validate(lora);
+        let lora = this.bot.utils.readYamlFile(filePath);
+        const { error, value } = loraSchema.validate(lora);
         if (error !== undefined) {
           throw error;
         }
+        lora = value;
 
         // Check alias conflict
         lora.list.forEach((value) => {
@@ -131,7 +135,7 @@ export default definePlugin({
           }
         });
         this.logger.info(
-          `Lora 分类 "${lora.category_name}" 已加载: ${filePath}`
+          `Lora 分类 "${lora.category_name}" 已加载`
         );
       } catch (err) {
         this.logger.error(`Lora 文件解析失败: ${filePath}`, err);
@@ -189,9 +193,15 @@ export default definePlugin({
     const { newPrompt, found, notFound } = this.loraAnalyzeAndReplace(
       data.prompt
     );
+    const time = moment().format('YYYY-MM-DD HH:mm:ss');
 
     // Send message
-    let msg = `现在开始处理 [CQ:at,qq=${data.userId}] 的生成请求`;
+    let msg = `现在开始处理${
+      data.groupId === undefined ? '您' : ` [CQ:at,qq=${data.userId}] `
+    }的生成请求`;
+    if (data.hires) {
+      msg += '\n🔍高分辨率已开启';
+    }
     if (found.length !== 0) {
       msg +=
         '\n✅检测到支持的 Lora：\n' +
@@ -207,7 +217,7 @@ export default definePlugin({
     if (notFound.length !== 0) {
       msg +=
         '\n❌检测到不支持的 Lora：\n' +
-        found
+        notFound
           .map((value) => `[${value.name}] ??? (${value.weight})`)
           .join('\n');
     }
@@ -226,13 +236,19 @@ export default definePlugin({
     // Create params
     let finalPrompt;
     if (data.groupId === undefined) {
-      finalPrompt = [this.config.prepend_prompt, newPrompt].join(',');
+      finalPrompt = [this.config.prepend_prompt, newPrompt]
+        .map((value) => value.trim())
+        .filter((value) => value.length !== 0)
+        .join(',');
     } else {
       finalPrompt = [
         this.config.prepend_prompt,
         group.prepend_prompt,
         newPrompt
-      ].join(',');
+      ]
+        .map((value) => value.trim())
+        .filter((value) => value.length !== 0)
+        .join(',');
     }
 
     let finalNegativePrompt;
@@ -240,25 +256,84 @@ export default definePlugin({
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
         data.negativePrompt
-      ].join(',');
+      ]
+        .map((value) => value.trim())
+        .filter((value) => value.length !== 0)
+        .join(',');
     } else if (group.nsfw) {
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
         group.prepend_negative_prompt,
         data.negativePrompt
-      ].join(',');
+      ]
+        .map((value) => value.trim())
+        .filter((value) => value.length !== 0)
+        .join(',');
     } else {
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
         group.prepend_negative_prompt,
         this.config.sfw_prepend_negative_prompt,
         data.negativePrompt
-      ].join(',');
+      ]
+        .map((value) => value.trim())
+        .filter((value) => value.length !== 0)
+        .join(',');
     }
 
+    const mratio = /^([1-9]\d*):([1-9]\d*)$/.exec(data.ratio);
+    const ratio = parseInt(mratio[1]) / parseInt(mratio[2]);
+    const h = Math.ceil(Math.sqrt(262144 / ratio));
+    const w = Math.ceil(h * ratio);
+
+    const params = {
+      override_settings: {
+        sd_model_checkpoint: this.config.model_name
+      },
+      prompt: finalPrompt,
+      negative_prompt: finalNegativePrompt,
+      sampler_name: this.config.sampler_name,
+      steps: data.iterationSteps,
+      restore_faces: false,
+      tiling: false,
+      width: w,
+      height: h,
+      enable_hr: data.hires,
+      hr_scale: data.scale,
+      hr_checkpoint_name: this.config.model_name,
+      hr_sampler_name: this.config.sampler_name,
+      hr_second_pass_steps: data.iterSteps,
+      hr_prompt: finalPrompt,
+      hr_negative_prompt: finalNegativePrompt,
+      hr_upscaler: this.config.upscaler_name,
+      denoising_strength: data.denoising,
+      seed: data.seed ?? -1
+    };
+    this.logger.trace('绘图参数', params);
+
     // Send request
+    const res = await fetch(url.resolve(this.config.api, '/sdapi/v1/txt2img'), {
+      method: 'POST',
+      headers: new Headers({
+        'Content-Type': 'application/json'
+      }),
+      body: JSON.stringify(params)
+    });
+    const json = await res.json();
+    json.info = JSON.parse(json.info);
 
     // Send msg
+    if (data.groupId === undefined) {
+      this.bot.sendPrivateMsg(
+        data.userId,
+        `提交时间：${data.query_time}\n处理时间：${time}\n正向提示词：${data.prompt}\n负向提示词：${data.negativePrompt}\n种子：${json.info.seed}\n[CQ:image,file=base64://${json.images[0]}]`
+      );
+    } else {
+      this.bot.sendGroupMsg(
+        data.groupId,
+        `[CQ:at,qq=${data.userId}]\n提交时间：${data.query_time}\n处理时间：${time}\n正向提示词：${data.prompt}\n负向提示词：${data.negativePrompt}\n种子：${json.info.seed}\n[CQ:image,file=base64://${json.images[0]}]`
+      );
+    }
   },
   async onStart() {
     // Initialize config
@@ -270,6 +345,7 @@ export default definePlugin({
       throw error;
     }
     this.config = value;
+    this.logger.info(`插件管理员：${this.config.manager}`);
 
     // Initialzie lora list
     this.readLoraList();
@@ -307,6 +383,17 @@ export default definePlugin({
 
     // Initialize generate queue
     this.queue = async.queue(this.generateWorker.bind(this), 1);
+    this.queue.error((err, task) => {
+      this.logger.error('生成出错', err, task);
+      if (task.groupId === undefined) {
+        this.bot.sendPrivateMsg(task.userId, '生成失败\n请联系管理员检查错误');
+      } else {
+        this.bot.sendGroupMsg(
+          task.groupId,
+          `[CQ:at,qq=${task.userId}] 生成失败\n请联系管理员检查错误`
+        );
+      }
+    });
   },
   onPrivateMessage(ev) {
     // Check command
@@ -403,16 +490,16 @@ export default definePlugin({
       .command('draw')
       .option('-p|--prompt <prompt>', undefined, '')
       .option('-n|--negativePrompt <prompt>', undefined, '')
-      .option('-i|--iterationSteps <steps>', undefined, '30')
+      .option('-i|--iterationSteps <steps>', undefined, '25')
       .option('-s|--seed <seed>')
       .option('-r|--ratio <ratio>', undefined, '1:1')
       .option('-h|--no-hires')
       .option('-S|--scale <scale>', undefined, '2')
       .option('-I|--iterSteps <steps>', undefined, '10')
-      .option('-d|--denoising <denoising>', undefined, '0.5')
-      .action((opt) => {
+      .option('-d|--denoising <denoising>', undefined, '0.2')
+      .action(async (opt) => {
         // Check queue
-        if (this.queue.length >= this.config.queue_size) {
+        if (this.queue.length() >= this.config.queue_size) {
           this.bot.sendPrivateMsg(
             ev.user_id,
             `等待队列已满，你的请求提交失败\n队列还有 ${this.queue.queue_size} 个正在等待`
@@ -439,8 +526,6 @@ export default definePlugin({
           this.bot.sendPrivateMsg(ev.user_id, `宽高比 (-r) 参数不合法`);
           return;
         }
-
-        opt.hires = !opt.hires;
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
           this.bot.sendPrivateMsg(ev.user_id, `放大倍数 (-S) 参数不合法`);
@@ -471,9 +556,10 @@ export default definePlugin({
         // Push task
         opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
         opt.userId = ev.user_id;
-        this.bot.sendPrivateMsg(
+
+        await this.bot.sendPrivateMsg(
           ev.user_id,
-          `生成请求已提交\n你是等待队列的第 ${this.queue.length + 1} 个`
+          `生成请求已提交\n你是等待队列的第 ${this.queue.length() + 1} 个`
         );
         this.queue.push(opt);
       });

@@ -9,3 +9,10 @@ export function getDirname(metaUrl?: string): string {
 export function replaceWhitespaces(str: string): string {
   return typeof str === 'string' ? str.replace(/\s+/g, ' ') : str;
 }
+
+export function overflowTrunc(str: string): string {
+  if (typeof str !== 'string' || str.length < 64) {
+    return str;
+  }
+  return str.slice(0, 256) + '...';
+}

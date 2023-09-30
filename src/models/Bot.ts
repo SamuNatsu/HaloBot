@@ -30,7 +30,7 @@ import { Config } from '../interfaces/Config';
 import YAML from 'yaml';
 import { ActionError, Adaptor } from './Adaptor';
 import { ForwardWebSocketAdaptor } from './ForwardWebSocketAdaptor';
-import { getDirname, replaceWhitespaces } from '../utils';
+import { getDirname, overflowTrunc, replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 import { schema as configSchema } from '../schemas/Config';
 import { EventDispatcher } from './EventDispatcher';
@@ -142,7 +142,7 @@ export class Bot {
             configurable: false
           },
           logger: {
-            value: new Logger(plugin.meta.name),
+            value: new Logger('Plugin:' + plugin.meta.name),
             writable: false,
             configurable: false
           },
@@ -388,12 +388,12 @@ export class Bot {
     if (group_id === undefined) {
       this.logger.info(
         `向 [${user_id}] 发送了消息`,
-        replaceWhitespaces(message)
+        overflowTrunc(replaceWhitespaces(message))
       );
     } else {
       this.logger.info(
         `向群 [${group_id}] 内 [${user_id}] 发送了消息`,
-        replaceWhitespaces(message)
+        overflowTrunc(replaceWhitespaces(message))
       );
     }
     return (
@@ -412,7 +412,7 @@ export class Bot {
   ): Promise<bigint> {
     this.logger.info(
       `向群 [${group_id}] 发送了消息`,
-      replaceWhitespaces(message)
+      overflowTrunc(replaceWhitespaces(message))
     );
     return (
       await this.adaptor.send('send_group_msg', {
@@ -429,9 +429,15 @@ export class Bot {
     auto_escape?: boolean
   ): Promise<bigint> {
     if (message_type === 'private') {
-      this.logger.info(`向 [${id}] 发送了消息`, replaceWhitespaces(message));
+      this.logger.info(
+        `向 [${id}] 发送了消息`,
+        overflowTrunc(replaceWhitespaces(message))
+      );
     } else {
-      this.logger.info(`向群 [${id}] 发送了消息`, replaceWhitespaces(message));
+      this.logger.info(
+        `向群 [${id}] 发送了消息`,
+        overflowTrunc(replaceWhitespaces(message))
+      );
     }
     return (
       await this.adaptor.send('send_msg', {

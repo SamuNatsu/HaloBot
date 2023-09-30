@@ -41,6 +41,7 @@ sampler_name: ''
 # 在 SFW 群聊里这些提示词会被自动添加以一定程度上阻止 NSFW 内容生成
 # sfw_prepend_negative_prompt: ''
 
-# Hires.fix 采样器名称
+# Hires.fix 放大器名称
 # 一个字符串
-hires_sampler_name: ''
+#  你可以通过 "/sdapi/v1/upscalers" 查询放大器列表并将你要使用的放大器的 name 填写在下面
+upscaler_name: ''
