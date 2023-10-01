@@ -1,6 +1,5 @@
 import { definePlugin } from '../../HaloBotPlugin.js';
 import { parse } from 'shell-quote';
-import { Command } from 'commander';
 import path from 'path';
 import fs from 'fs';
 import joi from 'joi';
@@ -459,12 +458,7 @@ export default definePlugin({
     // Setup command parser
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
-    const program = new Command();
-    program.exitOverride();
-    program.configureOutput({
-      writeErr: () => {},
-      writeOut: () => {}
-    });
+    const program = this.bot.utils.createCommandProgram();
 
     program.action(() => {
       this.bot.reply(
@@ -824,12 +818,7 @@ Ver ${this.meta.version}
 
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
-    const program = new Command();
-    program.exitOverride();
-    program.configureOutput({
-      writeErr: () => {},
-      writeOut: () => {}
-    });
+    const program = this.bot.utils.createCommandProgram();
 
     program.action(() => {
       this.bot.reply(

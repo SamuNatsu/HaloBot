@@ -30,7 +30,7 @@ import { Config } from '../interfaces/Config';
 import YAML from 'yaml';
 import { ActionError, Adaptor } from './Adaptor';
 import { AdaptorForwardWebSocket } from './AdaptorForwardWebSocket';
-import { getDirname, overflowTrunc, replaceWhitespaces } from '../utils';
+import { deepFreezeObject, getDirname, overflowTrunc, replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 import { schema as configSchema } from '../schemas/Config';
 import { EventDispatcher } from './EventDispatcher';
@@ -50,6 +50,7 @@ import {
   FriendRequestEvent,
   GroupRequestEvent
 } from '../interfaces/request_event';
+import { Command, ParseOptions } from 'commander';
 
 /* Special JSON */
 const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
@@ -69,7 +70,11 @@ export class Bot {
     this.config = config;
     this.adaptor = adaptor;
   }
-  public static async create(): Promise<Bot> {
+  public static async create(): Promise<{
+    bot: Bot;
+    start: () => Promise<void>;
+    stop: () => Promise<void>;
+  }> {
     // Read config
     const dirname: string = getDirname();
     const rawCfg: string = fs.readFileSync(
@@ -81,6 +86,7 @@ export class Bot {
     if (error !== undefined) {
       throw error;
     }
+    deepFreezeObject(config);
 
     // Create adaptor
     let adaptor: Adaptor;
@@ -89,6 +95,7 @@ export class Bot {
         adaptor = await AdaptorNone.create();
         break;
       case 'http':
+        /** TODO */
         throw new Error();
       case 'websocket':
         if (config.connection.config?.ws_type === 'forward') {
@@ -117,7 +124,7 @@ export class Bot {
     Object.seal(ret);
 
     ret.logger.info('HaloBot 实例化成功');
-    return ret;
+    return { bot: ret, start: ret.start.bind(ret), stop: ret.stop.bind(ret) };
   }
 
   /* Plugins */
@@ -125,6 +132,7 @@ export class Bot {
   private async loadPlugins(): Promise<void> {
     this.logger.debug('正在加载插件列表');
 
+    // Try to access plugin directory
     const dirname: string = getDirname();
     const pluginDir: string = path.join(dirname, './plugins');
     if (!fs.existsSync(pluginDir)) {
@@ -132,18 +140,22 @@ export class Bot {
       fs.mkdirSync(pluginDir, { recursive: true });
     }
 
+    // For each entry in plugin folder
     const pluginEntries: string[] = [];
     fs.readdirSync(pluginDir).forEach((value: string): void => {
+      // Skip ignored plugin
       if (value.startsWith('_')) {
         return;
       }
 
+      // Check directory
       const p: string = path.join(pluginDir, value);
       const s: fs.Stats = fs.statSync(p);
       if (!s.isDirectory()) {
         return;
       }
 
+      // Check plugin entry
       const pm: string = path.join(p, 'index.js');
       const sm: fs.Stats = fs.statSync(pm);
       if (!sm.isFile()) {
@@ -152,14 +164,17 @@ export class Bot {
       pluginEntries.push(pm);
     });
 
+    // For each plugin entry
     for (const i of pluginEntries) {
       try {
+        // Try to read entry script
         const plugin: InjectedPlugin = (await import('file://' + i)).default;
         const { error } = pluginSchema.validate(plugin);
         if (error !== undefined) {
           throw error;
         }
 
+        // Inject properties into plugin
         Object.defineProperties(plugin, {
           bot: {
             value: this,
@@ -178,6 +193,7 @@ export class Bot {
           }
         });
 
+        // Save plugin
         this.plugins.push(plugin);
         this.logger.trace(
           `找到插件 ${plugin.meta.name}[${plugin.meta.namespace}]`
@@ -187,6 +203,7 @@ export class Bot {
       }
     }
 
+    // Sort plugin
     this.logger.debug('正在按照优先级排序插件');
     this.plugins.sort(
       (a: InjectedPlugin, b: InjectedPlugin): number =>
@@ -228,7 +245,7 @@ export class Bot {
   }
 
   /* Control */
-  public async start(): Promise<void> {
+  private async start(): Promise<void> {
     if (this.watchdog !== undefined) {
       throw new Error('HaloBot 已启动');
     }
@@ -240,7 +257,7 @@ export class Bot {
 
     this.logger.info('HaloBot 已启动');
   }
-  public async stop(): Promise<void> {
+  private async stop(): Promise<void> {
     if (this.watchdog === undefined) {
       throw new Error('HaloBot 未启动');
     }
@@ -256,12 +273,31 @@ export class Bot {
   }
 
   /* HaloBot utils API */
+
+  /**
+   * HaloBot 实用工具 API
+   */
   public get utils() {
     return {
+      /**
+       * 读取 Json 文件
+       *
+       * @param path 文件路径
+       * @param intAsBigInt 是否将整数当作 bigint 解析，默认为否
+       * @returns 解析的对象
+       */
       readJsonFile: (path: string, intAsBigInt: boolean = false): any => {
         const raw: string = fs.readFileSync(path, 'utf-8');
         return intAsBigInt ? JSONbig.parse(raw) : JSON.parse(raw);
       },
+
+      /**
+       * 写入 Json 文件
+       *
+       * @param path 文件路径
+       * @param data 写入的对象
+       * @param prettify 是否美化输出，默认为否
+       */
       saveJsonFile: (
         path: string,
         data: any,
@@ -272,19 +308,47 @@ export class Bot {
           JSONbig.stringify(data, undefined, prettify ? 2 : undefined)
         );
       },
+
+      /**
+       * 读取 Yaml 文件
+       *
+       * @param path 文件路径
+       * @param intAsBigInt 是否将整数当作 bigint 解析，默认为否
+       * @returns 解析的对象
+       */
       readYamlFile: (path: string, intAsBigInt: boolean = false): any => {
         const raw: string = fs.readFileSync(path, 'utf-8');
         return intAsBigInt ? YAML.parse(raw, { intAsBigInt }) : YAML.parse(raw);
       },
+
+      /**
+       * 写入 Yaml 文件
+       *
+       * @param path 文件路径
+       * @param data 写入的对象
+       */
       saveYamlFile: (path: string, data: any): void => {
         fs.writeFileSync(path, YAML.stringify(data));
       },
+
+      /**
+       * 打开自定义数据库
+       *
+       * @param options 数据库参数
+       * @returns Knex 数据库对象
+       */
       openDB: (options: Knex.Config): Knex => {
-        this.logger.info('用户请求打开数据库', options);
+        this.logger.info('用户请求打开自定义数据库', options);
         return knex(options);
       },
+
+      /**
+       * 打开插件本地数据库
+       *
+       * @param metaUrl 插件的元信息 URL，使用 `import.meta.url` 获得
+       * @returns Knex 数据库对象
+       */
       openCurrentPluginDB: (metaUrl: string): Knex => {
-        this.logger.info('用户请求打开本地插件数据库');
         return knex({
           client: 'better-sqlite3',
           useNullAsDefault: true,
@@ -292,28 +356,67 @@ export class Bot {
             filename: path.join(getDirname(metaUrl), './plugin.db')
           }
         });
+      },
+
+      /**
+       * 创建命令解析程序
+       *
+       * @returns Commander 解析程序
+       */
+      createCommandProgram: (): Command => {
+        const ret: Command = new Command();
+        ret.exitOverride();
+        ret.configureOutput({
+          writeErr: () => {},
+          writeOut: () => {}
+        });
+
+        return ret;
       }
     };
   }
 
   /* Halo debug API */
+
+  /**
+   * HaloBot 调试 API
+   */
   public get debug() {
     return {
+      /**
+       * 向事件分发器推送自定义事件
+       *
+       * @param ev 自定义事件对象
+       */
       pushEvent: (ev: any): void => {
         this.logger.debug('用户推送了一个自定义事件', ev);
         this.dispatcher.dispatch(ev);
       },
+
+      /**
+       * 获取插件元信息表
+       *
+       * @returns 插件元信息表
+       */
       getPluginMetas: (): InjectedPlugin['meta'][] => {
         this.logger.debug('用户请求插件元信息表');
         return this.plugins.map(
           (value: InjectedPlugin): InjectedPlugin['meta'] => value.meta
         );
       },
+
+      /**
+       * 重启 HaloBot
+       */
       restartBot: async (): Promise<void> => {
         this.logger.debug('用户请求重启 HaloBot');
         await this.stopPlugins();
         process.exit(128);
       },
+
+      /**
+       * 重启所有插件
+       */
       restartPlugins: async (): Promise<void> => {
         this.logger.debug('用户请求重启插件');
         await this.stopPlugins();
@@ -323,6 +426,15 @@ export class Bot {
   }
 
   /* Halo APIs */
+
+  /**
+   * 调用插件方法
+   *
+   * @param method_name 方法名
+   * @param params 参数
+   * @param target 目标插件，默认为全部插件
+   * @returns 该插件方法的返回值
+   */
   public callPluginMethod(
     method_name: string,
     params: any,
@@ -346,11 +458,35 @@ export class Bot {
   }
 
   /* Quick operation APIs */
+
+  /**
+   * 快速回复消息
+   *
+   * @param ev 消息事件
+   * @param reply 回复信息
+   * @param auto_escape 是否转义 CQ 码，默认为不转义
+   */
   public async reply(
     ev: PrivateMessageEvent | GroupMessageEvent,
-    reply?: string,
+    reply: string,
     auto_escape?: boolean
   ): Promise<void> {
+    if (ev.message_type === 'group') {
+      this.logger.info(
+        `向群 [${ev.group_id}] 回复了消息`,
+        overflowTrunc(replaceWhitespaces(reply))
+      );
+    } else if (ev.sender.group_id === undefined) {
+      this.logger.info(
+        `向 [${ev.user_id}] 回复了消息`,
+        overflowTrunc(replaceWhitespaces(reply))
+      );
+    } else {
+      this.logger.info(
+        `向群 [${ev.sender.group_id}] 内 [${ev.user_id}] 回复了临时消息`,
+        overflowTrunc(replaceWhitespaces(reply))
+      );
+    }
     await this.adaptor.send('.handle_quick_operation', {
       context: ev,
       operation: {
@@ -359,9 +495,17 @@ export class Bot {
       }
     });
   }
+
+  /**
+   * 快速回复好友请求
+   *
+   * @param ev 好友请求事件
+   * @param approve 是否同意
+   * @param remark 添加后的好友备注（仅在同意时有效），默认为无备注
+   */
   public async replyFriendRequest(
     ev: FriendRequestEvent,
-    approve?: boolean,
+    approve: boolean,
     remark?: string
   ): Promise<void> {
     await this.adaptor.send('.handle_quick_operation', {
@@ -372,9 +516,17 @@ export class Bot {
       }
     });
   }
+
+  /**
+   * 快速回复加群请求/邀请
+   *
+   * @param ev 加群请求/邀请事件
+   * @param approve 是否同意
+   * @param reason 拒绝理由（仅在拒绝时有效），默认为无理由
+   */
   public async replyGroupRequest(
     ev: GroupRequestEvent,
-    approve?: boolean,
+    approve: boolean,
     reason?: string
   ): Promise<void> {
     await this.adaptor.send('.handle_quick_operation', {
@@ -459,7 +611,7 @@ export class Bot {
       );
     } else {
       this.logger.info(
-        `向群 [${group_id}] 内 [${user_id}] 发送了消息`,
+        `向群 [${group_id}] 内 [${user_id}] 发送了临时消息`,
         overflowTrunc(replaceWhitespaces(message))
       );
     }
@@ -778,6 +930,15 @@ export class Bot {
   }
 
   /* File APIs */
+
+  /**
+   * 上传群文件
+   *
+   * @param group_id 群号
+   * @param file 本地文件路径
+   * @param name 	储存名称
+   * @param folder 父目录ID
+   */
   public async uploadGroupFile(
     group_id: bigint,
     file: string,
@@ -791,6 +952,14 @@ export class Bot {
       folder
     });
   }
+
+  /**
+   * 删除群文件
+   *
+   * @param group_id 群号
+   * @param file_id 文件 ID
+   * @param busid 文件类型
+   */
   public async deleteGroupFile(
     group_id: bigint,
     file_id: string,
@@ -798,6 +967,14 @@ export class Bot {
   ): Promise<void> {
     await this.adaptor.send('delete_group_file', { group_id, file_id, busid });
   }
+
+  /**
+   * 创建群文件文件夹
+   *
+   * @param group_id 群号
+   * @param name 文件夹名称
+   * @param parent_id 仅能为 '/'
+   */
   public async createGroupFileFolder(
     group_id: bigint,
     name: string,
@@ -809,23 +986,52 @@ export class Bot {
       parent_id
     });
   }
+
+  /**
+   * 删除群文件文件夹
+   *
+   * @param group_id 群号
+   * @param folder_id 文件夹 ID
+   */
   public async deleteGroupFolder(
     group_id: bigint,
     folder_id: string
   ): Promise<void> {
     await this.adaptor.send('delete_group_folder', { group_id, folder_id });
   }
+
+  /**
+   * 获取群文件系统信息
+   *
+   * @param group_id 群号
+   * @returns 群文件系统信息
+   */
   public async getGroupFileSystemInfo(
     group_id: bigint
   ): Promise<GroupFileSystemInfo> {
     return (await this.adaptor.send('get_group_file_system_info', { group_id }))
       .data;
   }
+
+  /**
+   * 获取群根目录文件列表
+   *
+   * @param group_id 群号
+   * @returns 群根目录文件列表
+   */
   public async getGroupRootFiles(
     group_id: bigint
   ): Promise<GroupFileFolderInfo> {
     return (await this.adaptor.send('get_group_root_files', { group_id })).data;
   }
+
+  /**
+   * 获取群子目录文件列表
+   *
+   * @param group_id 群号
+   * @param folder_id 文件夹 ID
+   * @returns 群子目录文件列表
+   */
   public async getGroupFilesByFolder(
     group_id: bigint,
     folder_id: string
@@ -837,6 +1043,15 @@ export class Bot {
       })
     ).data;
   }
+
+  /**
+   * 获取群文件资源链接
+   *
+   * @param group_id 群号
+   * @param file_id 文件 ID
+   * @param busid 文件类型
+   * @returns 文件下载链接
+   */
   public async getGroupFileUrl(
     group_id: bigint,
     file_id: string,
@@ -850,6 +1065,14 @@ export class Bot {
       })
     ).data.url;
   }
+
+  /**
+   * 上传私聊文件
+   *
+   * @param user_id 对方 QQ 号
+   * @param file 本地文件路径
+   * @param name 文件名称
+   */
   public async uploadPrivateFile(
     user_id: bigint,
     file: string,
@@ -859,6 +1082,12 @@ export class Bot {
   }
 
   /* Go-CqHttp APIs */
+
+  /**
+   * 获取 Cookies
+   *
+   * @deprecated 该 API 暂未被 Go-CqHttp 支持
+   */
   public async getCookies(): Promise<never> {
     throw new ActionError({
       status: 'failed',
@@ -869,6 +1098,12 @@ export class Bot {
       echo: '-1'
     });
   }
+
+  /**
+   * 获取 CSRF Token
+   *
+   * @deprecated 该 API 暂未被 Go-CqHttp 支持
+   */
   public async getCsrfToken(): Promise<never> {
     throw new ActionError({
       status: 'failed',
@@ -879,6 +1114,12 @@ export class Bot {
       echo: '-1'
     });
   }
+
+  /**
+   * 获取 QQ 相关接口凭证
+   *
+   * @deprecated 该 API 暂未被 Go-CqHttp 支持
+   */
   public async getCredentials(): Promise<never> {
     throw new ActionError({
       status: 'failed',
@@ -889,12 +1130,30 @@ export class Bot {
       echo: '-1'
     });
   }
+
+  /**
+   * 获取版本信息
+   *
+   * @returns 版本信息
+   */
   public async getVersionInfo(): Promise<VersionInfo> {
     return (await this.adaptor.send('get_version_info')).data;
   }
+
+  /**
+   * 获取状态
+   *
+   * @returns {Status} 状态
+   */
   public async getStatus(): Promise<Status> {
     return (await this.adaptor.send('get_status')).data;
   }
+
+  /**
+   * 重启 Go-CqHttp
+   *
+   * @deprecated 该 API 已被 Go-CqHttp 移除
+   */
   public async setRestart(): Promise<never> {
     throw new ActionError({
       status: 'failed',
@@ -905,6 +1164,12 @@ export class Bot {
       echo: '-1'
     });
   }
+
+  /**
+   * 清理缓存
+   *
+   * @deprecated 该 API 暂未被 Go-CqHttp 支持
+   */
   public async cleanCache(): Promise<never> {
     throw new ActionError({
       status: 'failed',
@@ -915,9 +1180,24 @@ export class Bot {
       echo: '-1'
     });
   }
+
+  /**
+   * 重载事件过滤器
+   *
+   * @param file 事件过滤器文件路径
+   */
   public async reloadEventFilter(file: string): Promise<void> {
     await this.adaptor.send('reload_event_filter', { file });
   }
+
+  /**
+   * 下载文件到缓存目录
+   *
+   * @param url 链接地址
+   * @param thread_count 下载线程数
+   * @param headers 自定义请求头
+   * @returns 下载文件的绝对路径
+   */
   public async downloadFile(
     url: string,
     thread_count: bigint,
@@ -927,6 +1207,13 @@ export class Bot {
       await this.adaptor.send('download_file', { url, thread_count, headers })
     ).data.file;
   }
+
+  /**
+   * 检查链接安全性
+   *
+   * @param url 需要检查的链接
+   * @returns 安全等级
+   */
   public async checkUrlSafely(url: string): Promise<SafelyLevel> {
     return (await this.adaptor.send('check_url_safely', { url })).data.level;
   }

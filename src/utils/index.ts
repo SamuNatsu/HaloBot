@@ -19,7 +19,7 @@ export function overflowTrunc(str: string): string {
 
 export function deepFreezeObject(obj: any): void {
   Object.getOwnPropertyNames(obj).forEach((value: string): void => {
-    if (typeof obj[value] === 'object') {
+    if (typeof obj[value] === 'object' && obj[value] !== null) {
       deepFreezeObject(obj[value]);
     }
   });

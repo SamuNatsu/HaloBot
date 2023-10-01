@@ -23,17 +23,17 @@ process.on('unhandledRejection', (reason: unknown): void => {
 
 try {
   logger.info('正在实例化 HaloBot');
-  const bot: Bot = await Bot.create();
+  const { start, stop } = await Bot.create();
 
   parentPort?.on('message', (msg: MainMessage): void => {
     switch (msg.type) {
       case 'terminate':
-        bot.stop();
+        stop();
         break;
     }
   });
 
-  await bot.start();
+  await start();
 } catch (err: unknown) {
   logger.fatal('无法实例化 HaloBot', err);
   setTimeout((): never => {
