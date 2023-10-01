@@ -43,7 +43,8 @@ const configSchema = joi.object({
   prepend_prompt: joi.string().allow('').default(''),
   prepend_negative_prompt: joi.string().allow('').default(''),
   sfw_prepend_negative_prompt: joi.string().allow('').default(''),
-  upscaler_name: joi.string().required()
+  upscaler_name: joi.string().required(),
+  history_count: joi.number().integer().default(0)
 });
 const loraSchema = joi.object({
   category_name: joi.string().required(),
@@ -67,7 +68,7 @@ export default definePlugin({
     author: 'SNRainiar',
     description: '用于 HaloBot 的 StableDiffusion 插件',
     priority: 50,
-    version: '1.0.0',
+    version: '2.0.0',
     botVersion: '1.0.0'
   },
   readLoraList() {
@@ -242,6 +243,47 @@ export default definePlugin({
       .where('group_id', groupId);
     return row.length === 0 ? null : row[0];
   },
+  async saveImage(ev, params, b64) {
+    // Check enabled save images
+    if (this.config.history_count === 0) {
+      return;
+    }
+
+    // Save file
+    const name = moment().format('YYYYMMDD_HHmmss') + '.png';
+    const filePath = path.join(this.currentPluginDir, './images', name);
+    const dec64 = Buffer.from(b64, 'base64');
+    fs.writeFileSync(filePath, dec64);
+    this.logger.info(`图片已保存至: ${filePath}`);
+
+    // Write database
+    await this.db.transaction(async (trx) => {
+      // Insert row
+      await trx('saved_images').insert({
+        file_name: name,
+        params: JSON.stringify(params),
+        user_id: ev.user_id,
+        group_id: ev.group_id
+      });
+
+      // Check infinite
+      if (this.config.history_count < 0) {
+        return;
+      }
+
+      // Get count
+      const rows = await trx('saved_images').count('* as count');
+      if (rows[0].count <= this.config.history_count) {
+        return;
+      }
+
+      // Delete oldest
+      const img = await trx('saved_images').limit(1).orderBy('file_name');
+      fs.rmSync(path.join(this.currentPluginDir, './images', img[0].file_name));
+      await trx('saved_images').delete().where({ file_name: img[0].file_name });
+      this.logger.warn(`图片已删除: ${img[0].file_name}`);
+    });
+  },
   async generateWorker(task) {
     // Replace prompt
     const { newPrompt, found, notFound } = this.loraAnalyzeAndReplace(
@@ -282,7 +324,7 @@ export default definePlugin({
     // Get group config
     let group;
     if (task.ev.message_type === 'group') {
-      group = await this.getGroupRow(task.groupId);
+      group = await this.getGroupRow(task.ev.group_id);
     }
 
     // Create params
@@ -374,6 +416,9 @@ export default definePlugin({
     const json = await res.json();
     json.info = JSON.parse(json.info);
 
+    // Save image
+    this.saveImage(task.ev, params, json.images[0]);
+
     // Send msg
     this.bot.reply(
       task.ev,
@@ -401,6 +446,13 @@ export default definePlugin({
     this.config = value;
     this.logger.info(`插件管理员：${this.config.manager}`);
 
+    // Check images folder
+    const imagesDir = path.join(this.currentPluginDir, './images');
+    if (!fs.existsSync(imagesDir)) {
+      this.logger.warn(`Images 文件夹不存在，正在创建：${imagesDir}`);
+      fs.mkdirSync(imagesDir, { recursive: true });
+    }
+
     // Initialzie lora list
     this.readLoraList();
 
@@ -426,6 +478,18 @@ export default definePlugin({
           tb.boolean('nsfw');
           tb.text('prepend_prompt');
           tb.text('prepend_negative_prompt');
+        });
+      }
+
+      // Check saved_images table
+      ret = await trx.schema.hasTable('saved_images');
+      if (!ret) {
+        this.logger.warn('数据库中未找到 saved_images 表，正在新建');
+        await trx.schema.createTable('saved_images', (tb) => {
+          tb.string('file_name').primary();
+          tb.text('params');
+          tb.bigInteger('user_id');
+          tb.bigInteger('group_id');
         });
       }
     });
