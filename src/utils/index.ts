@@ -16,3 +16,12 @@ export function overflowTrunc(str: string): string {
   }
   return str.slice(0, 256) + '...';
 }
+
+export function deepFreezeObject(obj: any): void {
+  Object.getOwnPropertyNames(obj).forEach((value: string): void => {
+    if (typeof obj[value] === 'object') {
+      deepFreezeObject(obj[value]);
+    }
+  });
+  Object.freeze(obj);
+}

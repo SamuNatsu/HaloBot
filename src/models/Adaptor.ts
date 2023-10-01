@@ -27,7 +27,7 @@ export class ActionError extends Error {
     this.wording = res.wording as string;
   }
 }
-export class Adaptor {
+export abstract class Adaptor {
   /* Serial number system */
   private serialNumber: bigint = 0n;
   protected getNextSerialNumber(): string {
@@ -40,24 +40,15 @@ export class Adaptor {
   protected promiseMap: Map<string, AdaptorPromiseCallbacks> = new Map();
 
   /* Send and receive */
-  public async send(
+  public abstract send(
     action: string,
     params?: Record<string, any>
-  ): Promise<ActionResponse> {
-    return {
-      status: 'failed',
-      retcode: -1,
-      msg: 'Send method MUST be overwrote',
-      wording: 'Send 方法必须被重写',
-      data: undefined,
-      echo: '-1'
-    };
-  }
+  ): Promise<ActionResponse>;
   public messageHandler: (res: any) => void = () => {};
 
   /* Constructor */
   protected constructor() {}
   public static async create(...args: any[]): Promise<Adaptor> {
-    return new Adaptor();
+    throw new Error('禁止实例化抽象类');
   }
 }

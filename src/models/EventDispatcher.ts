@@ -1,6 +1,6 @@
 /// Event dispatcher model
 import { Plugin } from '../interfaces/Plugin';
-import { CallCustomEvent } from '../interfaces/custom_event';
+import { CallHaloEvent } from '../interfaces/halo_event';
 import {
   GroupMessageEvent,
   PrivateMessageEvent
@@ -27,7 +27,7 @@ import {
   FriendRequestEvent,
   GroupRequestEvent
 } from '../interfaces/request_event';
-import { overflowTrunc, replaceWhitespaces } from '../utils';
+import { deepFreezeObject, overflowTrunc, replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 
 /* Export class */
@@ -54,7 +54,7 @@ export class EventDispatcher {
       }
     }
   }
-  private relayTarget(name: string, target: string, ev: CallCustomEvent): void {
+  private relayTarget(name: string, target: string, ev: CallHaloEvent): void {
     const listeners: [string, Function][] | undefined =
       this.listenerMap.get(name);
     if (listeners === undefined) {
@@ -94,6 +94,7 @@ export class EventDispatcher {
     this.listenerMap.clear();
   }
   public dispatch(ev: any): void {
+    deepFreezeObject(ev);
     switch (ev.post_type) {
       case 'message':
       case 'message_sent':
@@ -324,7 +325,7 @@ export class EventDispatcher {
       case 'custom_event': {
         switch (ev.custom_event_type) {
           case 'call': {
-            const tmp: CallCustomEvent = ev;
+            const tmp: CallHaloEvent = ev;
             if (tmp.target !== undefined) {
               this.logger.info(
                 `收到上报给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`

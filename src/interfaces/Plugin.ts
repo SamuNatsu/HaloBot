@@ -1,5 +1,5 @@
 /// Plugin interface
-import { CallCustomEvent } from '../interfaces/custom_event';
+import { CallHaloEvent } from './halo_event';
 import {
   GroupMessageEvent,
   PrivateMessageEvent
@@ -100,7 +100,7 @@ export interface Plugin {
   onLifecycle?(this: InjectedPlugin, ev: LifecycleMetaEvent): void;
 
   /* Custom event */
-  onCall?(this: InjectedPlugin, ev: CallCustomEvent): void;
+  onCall?(this: InjectedPlugin, ev: CallHaloEvent): void;
 }
 
 interface InjectedPluginProperties {

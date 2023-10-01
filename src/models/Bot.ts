@@ -29,17 +29,27 @@ import fs from 'fs';
 import { Config } from '../interfaces/Config';
 import YAML from 'yaml';
 import { ActionError, Adaptor } from './Adaptor';
-import { ForwardWebSocketAdaptor } from './ForwardWebSocketAdaptor';
+import { AdaptorForwardWebSocket } from './AdaptorForwardWebSocket';
 import { getDirname, overflowTrunc, replaceWhitespaces } from '../utils';
 import { Logger } from './Logger';
 import { schema as configSchema } from '../schemas/Config';
 import { EventDispatcher } from './EventDispatcher';
-import { CallCustomEvent } from '../interfaces/custom_event';
+import { CallHaloEvent } from '../interfaces/halo_event';
 import { InjectedPlugin } from '../interfaces/Plugin';
 import { schema as pluginSchema } from '../schemas/Plugin';
 import JB from 'json-bigint';
 import knex, { Knex } from 'knex';
-import { GroupMessageEvent } from '../interfaces/message_event';
+import {
+  GroupMessageEvent,
+  PrivateMessageEvent
+} from '../interfaces/message_event';
+import { AdaptorNone } from './AdaptorNone';
+import { AdaptorFake } from './AdaptorFake';
+import { AdaptorReverseWebSocket } from './AdaptorReverseWebSocket';
+import {
+  FriendRequestEvent,
+  GroupRequestEvent
+} from '../interfaces/request_event';
 
 /* Special JSON */
 const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
@@ -60,6 +70,7 @@ export class Bot {
     this.adaptor = adaptor;
   }
   public static async create(): Promise<Bot> {
+    // Read config
     const dirname: string = getDirname();
     const rawCfg: string = fs.readFileSync(
       path.join(dirname, 'config.yaml'),
@@ -71,21 +82,35 @@ export class Bot {
       throw error;
     }
 
+    // Create adaptor
     let adaptor: Adaptor;
     switch (config.connection.type) {
-      case 'forward-http':
-      case 'reverse-http':
-      case 'forward-ws':
-      case 'reverse-ws':
-        adaptor = await ForwardWebSocketAdaptor.create(
-          config.connection.url as string
-        );
+      case 'none':
+        adaptor = await AdaptorNone.create();
         break;
-      case 'dry-run':
-        adaptor = await Adaptor.create();
+      case 'http':
+        throw new Error();
+      case 'websocket':
+        if (config.connection.config?.ws_type === 'forward') {
+          adaptor = await AdaptorForwardWebSocket.create(
+            config.connection.config?.ws_forward as string
+          );
+        } else {
+          adaptor = await AdaptorReverseWebSocket.create(
+            config.connection.config?.ws_reverse_port as number,
+            config.connection.config?.ws_reverse_path
+          );
+        }
+        break;
+      case 'fake':
+        adaptor = await AdaptorFake.create(
+          config.connection.config?.fake_reverse_port as number,
+          config.connection.config?.fake_reverse_path
+        );
         break;
     }
 
+    // Create instance
     const ret: Bot = new Bot(config, adaptor);
     adaptor.messageHandler = ret.dispatcher.dispatch.bind(ret.dispatcher);
     await ret.loadPlugins();
@@ -305,10 +330,11 @@ export class Bot {
   ): Promise<any> {
     return new Promise<any>(
       (resolve: (value: any) => void, reject: (reason?: any) => void): void => {
-        this.dispatcher.dispatch(<CallCustomEvent>{
+        this.dispatcher.dispatch(<CallHaloEvent>{
           time: BigInt(Math.floor(Date.now() / 1000)),
-          post_type: 'custom_event',
-          custom_event_type: 'call',
+          self_id: -1n,
+          post_type: 'halo_event',
+          halo_event_type: 'call',
           target,
           method_name,
           params,
@@ -317,6 +343,47 @@ export class Bot {
         });
       }
     );
+  }
+
+  /* Quick operation APIs */
+  public async reply(
+    ev: PrivateMessageEvent | GroupMessageEvent,
+    reply?: string,
+    auto_escape?: boolean
+  ): Promise<void> {
+    await this.adaptor.send('.handle_quick_operation', {
+      context: ev,
+      operation: {
+        reply,
+        auto_escape
+      }
+    });
+  }
+  public async replyFriendRequest(
+    ev: FriendRequestEvent,
+    approve?: boolean,
+    remark?: string
+  ): Promise<void> {
+    await this.adaptor.send('.handle_quick_operation', {
+      context: ev,
+      operation: {
+        approve,
+        remark
+      }
+    });
+  }
+  public async replyGroupRequest(
+    ev: GroupRequestEvent,
+    approve?: boolean,
+    reason?: string
+  ): Promise<void> {
+    await this.adaptor.send('.handle_quick_operation', {
+      context: ev,
+      operation: {
+        approve,
+        reason
+      }
+    });
   }
 
   /* Account APIs */

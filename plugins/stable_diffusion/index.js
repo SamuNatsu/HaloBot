@@ -8,8 +8,6 @@ import async from 'async';
 import moment from 'moment';
 import url from 'url';
 
-const loraPageLine = 10;
-
 /* Text */
 const loraReadme = `请在这个文件夹下存放支持的 Lora 列表信息
 每个文件将作为一个 Lora 分类，以 YAML 文件格式存储，使用 .yaml 扩展名
@@ -121,7 +119,7 @@ export default definePlugin({
           }
         });
 
-        // Update data
+        // Update task
         loraCategory[lora.category_name] = [
           loraList.length,
           loraList.length + lora.list.length
@@ -245,18 +243,20 @@ export default definePlugin({
       .where('group_id', groupId);
     return row.length === 0 ? null : row[0];
   },
-  async generateWorker(data) {
+  async generateWorker(task) {
     // Replace prompt
     const { newPrompt, found, notFound } = this.loraAnalyzeAndReplace(
-      data.prompt
+      task.prompt
     );
     const time = moment().format('YYYY-MM-DD HH:mm:ss');
 
     // Send message
     let msg = `现在开始处理${
-      data.groupId === undefined ? '您' : ` [CQ:at,qq=${data.userId}] `
+      task.ev.message_type === 'private'
+        ? '您'
+        : ` [CQ:at,qq=${task.ev.user_id}] `
     }的生成请求`;
-    if (data.hires) {
+    if (task.hires) {
       msg += '\n🔍高分辨率已开启';
     }
     if (found.length !== 0) {
@@ -278,21 +278,17 @@ export default definePlugin({
           .map((value) => `[${value.name}] ??? (${value.weight})`)
           .join('\n');
     }
-    if (data.groupId === undefined) {
-      this.bot.sendPrivateMsg(data.userId, msg);
-    } else {
-      this.bot.sendGroupMsg(data.groupId, msg);
-    }
+    this.bot.reply(task.ev, msg);
 
     // Get group config
     let group;
-    if (data.groupId !== undefined) {
-      group = await this.getGroupRow(data.groupId);
+    if (task.ev.message_type === 'group') {
+      group = await this.getGroupRow(task.groupId);
     }
 
     // Create params
     let finalPrompt;
-    if (data.groupId === undefined) {
+    if (task.ev.message_type === 'private') {
       finalPrompt = [this.config.prepend_prompt, newPrompt]
         .map((value) => value.trim())
         .filter((value) => value.length !== 0)
@@ -309,10 +305,10 @@ export default definePlugin({
     }
 
     let finalNegativePrompt;
-    if (data.groupId === undefined) {
+    if (task.ev.message_type === 'private') {
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
-        data.negativePrompt
+        task.negativePrompt
       ]
         .map((value) => value.trim())
         .filter((value) => value.length !== 0)
@@ -321,7 +317,7 @@ export default definePlugin({
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
         group.prepend_negative_prompt,
-        data.negativePrompt
+        task.negativePrompt
       ]
         .map((value) => value.trim())
         .filter((value) => value.length !== 0)
@@ -331,14 +327,14 @@ export default definePlugin({
         this.config.prepend_negative_prompt,
         group.prepend_negative_prompt,
         this.config.sfw_prepend_negative_prompt,
-        data.negativePrompt
+        task.negativePrompt
       ]
         .map((value) => value.trim())
         .filter((value) => value.length !== 0)
         .join(',');
     }
 
-    const mratio = /^([1-9]\d*):([1-9]\d*)$/.exec(data.ratio);
+    const mratio = /^([1-9]\d*):([1-9]\d*)$/.exec(task.ratio);
     const ratio = parseInt(mratio[1]) / parseInt(mratio[2]);
     const h = Math.ceil(Math.sqrt(262144 / ratio));
     const w = Math.ceil(h * ratio);
@@ -350,21 +346,21 @@ export default definePlugin({
       prompt: finalPrompt,
       negative_prompt: finalNegativePrompt,
       sampler_name: this.config.sampler_name,
-      steps: data.iterationSteps,
+      steps: task.iterationSteps,
       restore_faces: false,
       tiling: false,
       width: w,
       height: h,
-      enable_hr: data.hires,
-      hr_scale: data.scale,
+      enable_hr: task.hires,
+      hr_scale: task.scale,
       hr_checkpoint_name: this.config.model_name,
       hr_sampler_name: this.config.sampler_name,
-      hr_second_pass_steps: data.iterSteps,
+      hr_second_pass_steps: task.iterSteps,
       hr_prompt: finalPrompt,
       hr_negative_prompt: finalNegativePrompt,
       hr_upscaler: this.config.upscaler_name,
-      denoising_strength: data.denoising,
-      seed: data.seed ?? -1
+      denoising_strength: task.denoising,
+      seed: task.seed ?? -1
     };
     this.logger.trace('绘图参数', params);
 
@@ -380,17 +376,19 @@ export default definePlugin({
     json.info = JSON.parse(json.info);
 
     // Send msg
-    if (data.groupId === undefined) {
-      this.bot.sendPrivateMsg(
-        data.userId,
-        `提交时间：${data.query_time}\n处理时间：${time}\n正向提示词：${data.prompt}\n负向提示词：${data.negativePrompt}\n种子：${json.info.seed}\n[CQ:image,file=base64://${json.images[0]}]`
-      );
-    } else {
-      this.bot.sendGroupMsg(
-        data.groupId,
-        `[CQ:at,qq=${data.userId}]\n提交时间：${data.query_time}\n处理时间：${time}\n正向提示词：${data.prompt}\n负向提示词：${data.negativePrompt}\n种子：${json.info.seed}\n[CQ:image,file=base64://${json.images[0]}]`
-      );
-    }
+    this.bot.reply(
+      task.ev,
+      `${
+        task.ev.message_type === 'group'
+          ? `[CQ:at,qq=${task.ev.user_id}]\n`
+          : ''
+      }提交时间：${task.query_time}
+处理时间：${time}
+正向提示词：${task.prompt}
+负向提示词：${task.negativePrompt}
+种子：${json.info.seed}
+[CQ:image,file=base64://${json.images[0]}]`
+    );
   },
   async onStart() {
     // Initialize config
@@ -442,12 +440,12 @@ export default definePlugin({
     this.queue = async.queue(this.generateWorker.bind(this), 1);
     this.queue.error((err, task) => {
       this.logger.error('生成出错', err, task);
-      if (task.groupId === undefined) {
-        this.bot.sendPrivateMsg(task.userId, '生成失败\n请联系管理员检查错误');
+      if (task.ev.message_type === 'private') {
+        this.bot.reply(task.ev, '生成失败\n请联系管理员检查错误');
       } else {
-        this.bot.sendGroupMsg(
-          task.groupId,
-          `[CQ:at,qq=${task.userId}] 生成失败\n请联系管理员检查错误`
+        this.bot.reply(
+          task.ev,
+          `[CQ:at,qq=${task.ev.user_id}] 生成失败\n请联系管理员检查错误`
         );
       }
     });
@@ -458,6 +456,7 @@ export default definePlugin({
       return;
     }
 
+    // Setup command parser
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
     const program = new Command();
@@ -468,9 +467,13 @@ export default definePlugin({
     });
 
     program.action(() => {
-      this.bot.sendPrivateMsg(
-        ev.user_id,
-        `【StableDiffusion 插件】\nVer.${this.meta.version}\n欢迎使用 AI 绘图！\n你可以在私聊中以及授权的群里使用 AI 绘图功能。\n请使用命令 [#sd help] 查看帮助。`
+      this.bot.reply(
+        ev,
+        `【StableDiffusion 插件】
+Ver ${this.meta.version}
+欢迎使用 AI 绘图！
+你可以在私聊中以及授权的群里使用 AI 绘图功能。
+请使用命令 [#sd help] 查看帮助。`
       );
     });
 
@@ -480,44 +483,54 @@ export default definePlugin({
       .action((sub) => {
         switch (sub) {
           case undefined:
-            this.bot.sendPrivateMsg(
-              ev.user_id,
-              `【插件帮助】\n[#sd help draw] 查看绘图帮助\n[#sd help lora] 查看 Lora 帮助` +
+            this.bot.reply(
+              ev,
+              `【插件帮助】
+[#sd help draw] 查看绘图帮助
+[#sd help lora] 查看 Lora 帮助` +
                 (this.config.manager === String(ev.user_id)
                   ? '\n[#sd help manage] 查看管理帮助'
                   : '')
             );
             break;
           case 'draw':
-            this.bot.sendPrivateMsg(
-              ev.user_id,
-              `【绘图帮助】\n建议在私聊里查看教程以避免刷屏\n[#sd tutorial [页码]] 查看绘图教程的某一页\n[#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
+            this.bot.reply(
+              ev,
+              `【绘图帮助】
+  建议在私聊里查看教程以避免刷屏
+  [#sd tutorial [页码]] 查看绘图教程的某一页
+  [#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
             );
             break;
           case 'lora':
-            this.bot.sendPrivateMsg(
-              ev.user_id,
-              `【Lora 帮助】\n建议在私聊里查看 Lora 信息以避免刷屏\n[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录\n[#sd lora <序号>] 查看某序号 Lora 的详细信息`
+            this.bot.reply(
+              ev,
+              `【Lora 帮助】
+建议在私聊里查看 Lora 信息以避免刷屏
+[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录
+[#sd lora <序号>] 查看某序号 Lora 的详细信息`
             );
             break;
           case 'manage':
             if (this.config.manager !== String(ev.user_id)) {
-              this.bot.sendPrivateMsg(
-                ev.user_id,
-                `【插件帮助】\n找不到名为 "${sub}" 的帮助子项`
-              );
+              this.bot.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
               break;
             }
-            this.bot.sendPrivateMsg(
-              ev.user_id,
-              `【管理帮助】\n以下命令只能通过私聊触发，且只有插件管理员能得到响应。\n[#sd groups] 查看所有启用插件的群号\n[#sd enable <群号>] 在某个群中启用插件\n[#sd disable <群号>] 在某个群中禁用插件\n[#sd sfw <群号>] 设置某个群为健全群\n[#sd nsfw <群号>] 设置某个群为不健全群\n[#sd prompt <群号> <正向提示词>] 设置某个群额外的正向提示词\n[#sd negative_prompt <群号> <负向提示词>] 设置某个群的额外负向提示词`
+            this.bot.reply(
+              ev,
+              `【管理帮助】
+以下命令只能通过私聊触发，且只有插件管理员能得到响应。
+[#sd groups] 查看所有启用插件的群号
+[#sd enable <群号>] 在某个群中启用插件
+[#sd disable <群号>] 在某个群中禁用插件
+[#sd sfw <群号>] 设置某个群为健全群
+[#sd nsfw <群号>] 设置某个群为不健全群
+[#sd prompt <群号> <正向提示词>] 设置某个群额外的正向提示词
+[#sd negative_prompt <群号> <负向提示词>] 设置某个群的额外负向提示词`
             );
             break;
           default:
-            this.bot.sendPrivateMsg(
-              ev.user_id,
-              `【插件帮助】\n找不到名为 "${sub}" 的帮助子项`
-            );
+            this.bot.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
         }
       });
 
@@ -527,16 +540,16 @@ export default definePlugin({
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.sendPrivateMsg(ev.user_id, `【绘图教程】\n页码不合法`);
+          this.bot.reply(ev, `页码不合法`);
           return;
         }
         if (page > this.tutorials.length) {
-          this.bot.sendPrivateMsg(ev.user_id, `【绘图教程】\n没有更多的页了`);
+          this.bot.reply(ev, `没有更多的页了`);
           return;
         }
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
+        this.bot.reply(
+          ev,
           `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
             page - 1
           ].trim()}`
@@ -557,8 +570,8 @@ export default definePlugin({
       .action(async (opt) => {
         // Check queue
         if (this.queue.length() >= this.config.queue_size) {
-          this.bot.sendPrivateMsg(
-            ev.user_id,
+          this.bot.reply(
+            ev,
             `等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
           );
           return;
@@ -566,56 +579,56 @@ export default definePlugin({
 
         // Validate
         if (!/^(2[0-9]|3[0-9]|40)$/.test(opt.iterationSteps)) {
-          this.bot.sendPrivateMsg(ev.user_id, `迭代步数 (-i) 参数不合法`);
+          this.bot.reply(ev, `迭代步数 (-i) 参数不合法`);
           return;
         }
         opt.iterationSteps = parseInt(opt.iterationSteps);
 
         if (opt.seed !== undefined) {
           if (!/^(0|[1-9]\d*)$/.test(opt.seed)) {
-            this.bot.sendPrivateMsg(ev.user_id, `种子 (-s) 参数不合法`);
+            this.bot.reply(ev, `种子 (-s) 参数不合法`);
             return;
           }
           opt.seed = parseInt(opt.seed);
         }
 
         if (!/^[1-9]\d*:[1-9]\d*$/.test(opt.ratio)) {
-          this.bot.sendPrivateMsg(ev.user_id, `宽高比 (-r) 参数不合法`);
+          this.bot.reply(ev, `宽高比 (-r) 参数不合法`);
           return;
         }
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
-          this.bot.sendPrivateMsg(ev.user_id, `放大倍数 (-S) 参数不合法`);
+          this.bot.reply(ev, `放大倍数 (-S) 参数不合法`);
           return;
         }
         opt.scale = parseFloat(opt.scale);
         if (opt.scale < 1 || opt.scale > 3) {
-          this.bot.sendPrivateMsg(ev.user_id, `放大倍数 (-S) 参数不合法`);
+          this.bot.reply(ev, `放大倍数 (-S) 参数不合法`);
           return;
         }
 
         if (!/^(0|1?\d|20)$/.test(opt.iterSteps)) {
-          this.bot.sendPrivateMsg(ev.user_id, `迭代步数 (-I) 参数不合法`);
+          this.bot.reply(ev, `迭代步数 (-I) 参数不合法`);
           return;
         }
         opt.iterSteps = parseInt(opt.iterSteps);
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.denoising)) {
-          this.bot.sendPrivateMsg(ev.user_id, `重绘幅度 (-d) 参数不合法`);
+          this.bot.reply(ev, `重绘幅度 (-d) 参数不合法`);
           return;
         }
         opt.denoising = parseFloat(opt.denoising);
         if (opt.denoising > 1) {
-          this.bot.sendPrivateMsg(ev.user_id, `重绘幅度 (-d) 参数不合法`);
+          this.bot.reply(ev, `重绘幅度 (-d) 参数不合法`);
           return;
         }
 
         // Push task
         opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
-        opt.userId = ev.user_id;
+        opt.ev = ev;
 
-        await this.bot.sendPrivateMsg(
-          ev.user_id,
+        await this.bot.reply(
+          ev,
           `生成请求已提交\n你是等待队列的第 ${this.queue.length() + 1} 个`
         );
         this.queue.push(opt);
@@ -627,14 +640,14 @@ export default definePlugin({
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.sendPrivateMsg(ev.user_id, `【Lora 列表】\n页码不合法`);
+          this.bot.reply(ev, `页码不合法`);
           return;
         }
         if (page > this.loraTotalPage) {
-          this.bot.sendPrivateMsg(ev.user_id, `【Lora 列表】\n没有更多的页了`);
+          this.bot.reply(ev, `没有更多的页了`);
           return;
         }
-        this.bot.sendPrivateMsg(ev.user_id, this.getLoraPage(page - 1));
+        this.bot.reply(ev, this.getLoraPage(page - 1));
       });
 
     program
@@ -643,10 +656,10 @@ export default definePlugin({
       .action((ord) => {
         ord = parseInt(ord);
         if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
-          this.bot.sendPrivateMsg(ev.user_id, `【Lora 信息】\n序号不合法`);
+          this.bot.reply(ev, `序号不合法`);
           return;
         }
-        this.bot.sendPrivateMsg(ev.user_id, this.getLoraInfo(ord - 1));
+        this.bot.reply(ev, this.getLoraInfo(ord - 1));
       });
 
     program.command('groups').action(async () => {
@@ -659,15 +672,9 @@ export default definePlugin({
         (value) => `${value.group_id}${value.nsfw ? '🔞' : ''}`
       );
       if (groups.length === 0) {
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          '【插件管理】\n插件没有在任何群中生效'
-        );
+        this.bot.reply(ev, '插件没有在任何群中生效');
       } else {
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n插件在以下群中生效：\n${groups.join(', ')}`
-        );
+        this.bot.reply(ev, `插件在以下群中生效：\n${groups.join(', ')}`);
       }
     });
 
@@ -680,7 +687,7 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
@@ -694,10 +701,7 @@ export default definePlugin({
           .onConflict()
           .ignore();
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n插件已在群 [${groupId}] 中启用`
-        );
+        this.bot.reply(ev, `插件已在群 [${groupId}] 中启用`);
       });
 
     program
@@ -709,16 +713,13 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
         await this.db('enabled_groups').delete().where('group_id', groupId);
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n插件已在群 [${groupId}] 中禁用`
-        );
+        this.bot.reply(ev, `插件已在群 [${groupId}] 中禁用`);
       });
 
     program
@@ -730,7 +731,7 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
@@ -738,10 +739,7 @@ export default definePlugin({
           .update({ nsfw: false })
           .where('group_id', groupId);
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n群 [${groupId}] 已开启健全模式`
-        );
+        this.bot.reply(ev, `群 [${groupId}] 已开启健全模式`);
       });
 
     program
@@ -753,7 +751,7 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
@@ -761,10 +759,7 @@ export default definePlugin({
           .update({ nsfw: true })
           .where('group_id', groupId);
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n群 [${groupId}] 已开启不健全模式`
-        );
+        this.bot.reply(ev, `群 [${groupId}] 已开启不健全模式`);
       });
 
     program
@@ -777,7 +772,7 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
@@ -785,10 +780,7 @@ export default definePlugin({
           .update({ prepend_prompt: prompt })
           .where('group_id', groupId);
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n群 [${groupId}] 的附加正向提示词已更新`
-        );
+        this.bot.reply(ev, `群 [${groupId}] 的附加正向提示词已更新`);
       });
 
     program
@@ -801,7 +793,7 @@ export default definePlugin({
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.sendPrivateMsg(ev.user_id, `【插件管理】\n群号不合法`);
+          this.bot.reply(ev, `群号不合法`);
           return;
         }
 
@@ -809,10 +801,7 @@ export default definePlugin({
           .update({ prepend_negative_prompt: prompt })
           .where('group_id', groupId);
 
-        this.bot.sendPrivateMsg(
-          ev.user_id,
-          `【插件管理】\n群 [${groupId}] 的附加负向提示词已更新`
-        );
+        this.bot.reply(ev, `群 [${groupId}] 的附加负向提示词已更新`);
       });
 
     try {
@@ -843,9 +832,13 @@ export default definePlugin({
     });
 
     program.action(() => {
-      this.bot.sendGroupMsg(
-        ev.group_id,
-        `【StableDiffusion 插件】\nVer.${this.meta.version}\n欢迎使用 AI 绘图！\n你可以在私聊中以及授权的群里使用 AI 绘图功能。\n请使用命令 [#sd help] 查看帮助。`
+      this.bot.reply(
+        ev,
+        `【StableDiffusion 插件】
+Ver ${this.meta.version}
+欢迎使用 AI 绘图！
+你可以在私聊中以及授权的群里使用 AI 绘图功能。
+请使用命令 [#sd help] 查看帮助。`
       );
     });
 
@@ -855,26 +848,34 @@ export default definePlugin({
       .action((sub) => {
         switch (sub) {
           case undefined:
-            this.bot.sendGroupMsg(
-              ev.group_id,
-              `【插件帮助】\n[#sd help draw] 查看绘图帮助\n[#sd help lora] 查看 Lora 帮助`
+            this.bot.reply(
+              ev,
+              `【插件帮助】
+[#sd help draw] 查看绘图帮助
+[#sd help lora] 查看 Lora 帮助`
             );
             break;
           case 'draw':
-            this.bot.sendGroupMsg(
-              ev.group_id,
-              `【绘图帮助】\n建议在私聊里查看教程以避免刷屏\n[#sd tutorial [页码]] 查看绘图教程的某一页\n[#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
+            this.bot.reply(
+              ev,
+              `【绘图帮助】
+建议在私聊里查看教程以避免刷屏
+[#sd tutorial [页码]] 查看绘图教程的某一页
+[#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
             );
             break;
           case 'lora':
-            this.bot.sendGroupMsg(
-              ev.group_id,
-              `【Lora 帮助】\n建议在私聊里查看 Lora 信息以避免刷屏\n[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录\n[#sd lora <序号>] 查看某序号 Lora 的详细信息`
+            this.bot.reply(
+              ev,
+              `【Lora 帮助】
+建议在私聊里查看 Lora 信息以避免刷屏
+[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录
+[#sd lora <序号>] 查看某序号 Lora 的详细信息`
             );
             break;
           default:
-            this.bot.sendGroupMsg(
-              ev.group_id,
+            this.bot.reply(
+              ev,
               `[CQ:at,qq=${ev.user_id}] 找不到名为 "${sub}" 的帮助子项`
             );
         }
@@ -886,22 +887,16 @@ export default definePlugin({
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
-            `[CQ:at,qq=${ev.user_id}] 页码不合法`
-          );
+          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
           return;
         }
         if (page > this.tutorials.length) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
-            `[CQ:at,qq=${ev.user_id}] 没有更多的页了`
-          );
+          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
           return;
         }
 
-        this.bot.sendGroupMsg(
-          ev.group_id,
+        this.bot.reply(
+          ev,
           `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
             page - 1
           ].trim()}`
@@ -922,8 +917,8 @@ export default definePlugin({
       .action(async (opt) => {
         // Check queue
         if (this.queue.length() >= this.config.queue_size) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
           );
           return;
@@ -931,8 +926,8 @@ export default definePlugin({
 
         // Validate
         if (!/^(2[0-9]|3[0-9]|40)$/.test(opt.iterationSteps)) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 迭代步数 (-i) 参数不合法`
           );
           return;
@@ -941,42 +936,36 @@ export default definePlugin({
 
         if (opt.seed !== undefined) {
           if (!/^(0|[1-9]\d*)$/.test(opt.seed)) {
-            this.bot.sendGroupMsg(
-              ev.group_id,
-              `[CQ:at,qq=${ev.user_id}] 种子 (-s) 参数不合法`
-            );
+            this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 种子 (-s) 参数不合法`);
             return;
           }
           opt.seed = parseInt(opt.seed);
         }
 
         if (!/^[1-9]\d*:[1-9]\d*$/.test(opt.ratio)) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
-            `[CQ:at,qq=${ev.user_id}] 宽高比 (-r) 参数不合法`
-          );
+          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 宽高比 (-r) 参数不合法`);
           return;
         }
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
           );
           return;
         }
         opt.scale = parseFloat(opt.scale);
         if (opt.scale < 1 || opt.scale > 3) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
           );
           return;
         }
 
         if (!/^(0|1?\d|20)$/.test(opt.iterSteps)) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 迭代步数 (-I) 参数不合法`
           );
           return;
@@ -984,16 +973,16 @@ export default definePlugin({
         opt.iterSteps = parseInt(opt.iterSteps);
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.denoising)) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
           );
           return;
         }
         opt.denoising = parseFloat(opt.denoising);
         if (opt.denoising > 1) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
+          this.bot.reply(
+            ev,
             `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
           );
           return;
@@ -1001,11 +990,10 @@ export default definePlugin({
 
         // Push task
         opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
-        opt.userId = ev.user_id;
-        opt.groupId = ev.group_id;
+        opt.ev = ev;
 
-        await this.bot.sendGroupMsg(
-          ev.group_id,
+        await this.bot.reply(
+          ev,
           `[CQ:at,qq=${ev.user_id}] 生成请求已提交\n你是等待队列的第 ${
             this.queue.length() + 1
           } 个`
@@ -1019,17 +1007,11 @@ export default definePlugin({
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
-            `[CQ:at,qq=${ev.user_id}] 页码不合法`
-          );
+          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
           return;
         }
         page = this.getLoraPage(page - 1, group.nsfw);
-        this.bot.sendGroupMsg(
-          ev.group_id,
-          page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`
-        );
+        this.bot.reply(ev, page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
       });
 
     program
@@ -1038,17 +1020,11 @@ export default definePlugin({
       .action((ord) => {
         ord = parseInt(ord);
         if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
-          this.bot.sendGroupMsg(
-            ev.group_id,
-            `[CQ:at,qq=${ev.user_id}] 序号不合法`
-          );
+          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 序号不合法`);
           return;
         }
         ord = this.getLoraInfo(ord - 1, group.nsfw);
-        this.bot.sendGroupMsg(
-          ev.group_id,
-          ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`
-        );
+        this.bot.reply(ev, ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`);
       });
 
     try {
