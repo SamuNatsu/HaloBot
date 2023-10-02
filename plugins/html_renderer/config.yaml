@@ -7,9 +7,9 @@ mode: keep_alive
 # 并行渲染数
 # 一个正整数，默认为 5
 # 允许同时渲染的数量，越大则渲染吞吐量越大，同时内存使用更多
-parallel_count: 5
+# parallel_count: 5
 
 # 超时
 # 一个正整数，单位秒，默认为 10
 # 只有在 instant 模式下才有效，表示最后一次渲染完毕后多少秒内没有新的渲染请求则自动关闭浏览器
-instant_timeout: 10
+# instant_timeout: 10

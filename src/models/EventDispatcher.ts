@@ -322,8 +322,8 @@ export class EventDispatcher {
             this.logger.error('检测到未知的元事件上报', ev);
         }
         break;
-      case 'custom_event': {
-        switch (ev.custom_event_type) {
+      case 'halo_event': {
+        switch (ev.halo_event_type) {
           case 'call': {
             const tmp: CallHaloEvent = ev;
             if (tmp.target !== undefined) {

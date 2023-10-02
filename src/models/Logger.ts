@@ -1,6 +1,7 @@
 /// Logger model
 import chalk from 'chalk';
 import moment from 'moment';
+import JSONbig from 'json-bigint';
 
 /* Export class */
 export class Logger {
@@ -23,28 +24,69 @@ export class Logger {
       } else if (typeof i === 'string') {
         str += chalk.gray(i);
       } else {
-        str += chalk.gray(JSON.stringify(i, undefined, 2));
+        str += chalk.gray(JSONbig.stringify(i, undefined, 2));
       }
       str += '\n';
     }
     process.stdout.write(str);
   }
 
+  /**
+   * 打印追踪日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public trace(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.gray('TRACE'), msg, args);
   }
+
+  /**
+   * 打印调试日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public debug(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.blue('DEBUG'), msg, args);
   }
+
+  /**
+   * 打印信息日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public info(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.green('INFO'), msg, args);
   }
+
+  /**
+   * 打印警告日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public warn(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.yellow('WARN'), msg, args);
   }
+
+  /**
+   * 打印错误日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public error(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.red('ERROR'), msg, args);
   }
+
+  /**
+   * 打印严重错误日志
+   * 
+   * @param msg 信息
+   * @param args 数据
+   */
   public fatal(msg: string, ...args: any[]): void {
     this.printTemplate(chalk.magenta('FATAL'), msg, args);
   }
