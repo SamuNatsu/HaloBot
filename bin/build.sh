@@ -9,3 +9,4 @@ rm -rf build
 mkdir -p build
 cp dist/HaloBot* build/
 cp dist/worker.min.mjs build/
+cp ./package.json build/
