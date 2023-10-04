@@ -1,11 +1,11 @@
 /// None adaptor model
 import { ActionResponse, Adaptor } from './Adaptor';
-import { Logger } from './Logger';
+import { Logger } from '../Logger';
 
 /* Export class */
 export class AdaptorNone extends Adaptor {
   /* Logger */
-  private logger: Logger = new Logger('Adaptor:None');
+  private logger: Logger = new Logger('适配器:空');
 
   /* Send and receive */
   public async send(action: string, params: any): Promise<ActionResponse> {
@@ -29,7 +29,7 @@ export class AdaptorNone extends Adaptor {
     super();
     this.logger.debug('适配器已创建');
   }
-  public static async create(): Promise<Adaptor> {
-    return new AdaptorNone();
+  public static async create(): Promise<void> {
+    Adaptor.instance = new AdaptorNone();
   }
 }

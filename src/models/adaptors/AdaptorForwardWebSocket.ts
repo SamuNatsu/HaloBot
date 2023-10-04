@@ -7,7 +7,7 @@ import {
   AdaptorPromiseCallbacks
 } from './Adaptor';
 import JB from 'json-bigint';
-import { Logger } from './Logger';
+import { Logger } from '../Logger';
 
 const JSONbig = JB({
   useNativeBigInt: true,
@@ -17,7 +17,7 @@ const JSONbig = JB({
 /* Export class */
 export class AdaptorForwardWebSocket extends Adaptor {
   /* Properties */
-  private logger: Logger = new Logger('Adaptor:ForwardWebsocket');
+  private logger: Logger = new Logger('适配器:正向 WebSocket');
   private socket: WebSocket;
 
   /* Send and receive */
@@ -42,10 +42,10 @@ export class AdaptorForwardWebSocket extends Adaptor {
     super();
     this.socket = socket;
   }
-  public static create(url: string): Promise<Adaptor> {
-    return new Promise<AdaptorForwardWebSocket>(
+  public static create(url: string): Promise<void> {
+    return new Promise<void>(
       (
-        resolve: (value: AdaptorForwardWebSocket) => void,
+        resolve: (value: void) => void,
         reject: (reason?: any) => void
       ): void => {
         // Create WebSocket
@@ -68,7 +68,8 @@ export class AdaptorForwardWebSocket extends Adaptor {
         socket.on('open', (): void => {
           ret.logger.debug('适配器已创建');
           started = true;
-          resolve(ret);
+          Adaptor.instance = ret;
+          resolve();
         });
         socket.on('close', (_, reason: Buffer): void => {
           ret.logger.warn(`适配器已断开: ${reason.toString()}`);

@@ -48,7 +48,16 @@ export abstract class Adaptor {
 
   /* Constructor */
   protected constructor() {}
-  public static async create(...args: any[]): Promise<Adaptor> {
+  public static async create(...args: any[]): Promise<void> {
     throw new Error('禁止实例化抽象类');
+  }
+
+  /* Singleton */
+  protected static instance?: Adaptor;
+  public static getInstance(): Adaptor {
+    if (Adaptor.instance === undefined) {
+      throw new Error('适配器未被具象实例化');
+    }
+    return Adaptor.instance;
   }
 }

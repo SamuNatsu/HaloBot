@@ -1,21 +1,10 @@
-/// Meta event interfaces
-import { CqEvent } from './CqEvent';
+/// Heartbeat meta event interface
+import { MetaEvent } from './MetaEvent';
 
 /**
- * Go-CqHttp 元事件
- */
-interface MetaEvent extends CqEvent {
-  /**
-   * 元事件类型
-   */
-  meta_event_type: 'heartbeat' | 'lifecycle';
-}
-
-/**
- * Go-CqHttp 心跳元事件
+ * 心跳元事件
  */
 export interface HeartbeatMetaEvent extends MetaEvent {
-  post_type: 'meta_event';
   meta_event_type: 'heartbeat';
 
   /**
@@ -97,16 +86,4 @@ export interface HeartbeatMetaEvent extends MetaEvent {
    * 距离上一次心跳包的时间（毫秒）
    */
   interval: bigint;
-}
-
-/**
- * Go-CqHttp 生命周期元事件
- */
-export interface LifecycleMetaEvent extends MetaEvent {
-  meta_event_type: 'lifecycle';
-
-  /**
-   * 生命周期子类型
-   */
-  sub_type: 'enable' | 'disable' | 'connect';
 }

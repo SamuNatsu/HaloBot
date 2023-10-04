@@ -1,22 +1,21 @@
-/// Custom event interfaces
-import { CqEvent } from './CqEvent';
+/// Call halo event interfaces
+import { HaloEvent } from './HaloEvnet';
 
 /**
  * HaloBot 调用事件
  */
-export interface CallHaloEvent extends CqEvent {
-  self_id: -1n;
-  post_type: 'halo_event';
+export interface CallHaloEvent extends HaloEvent {
+  halo_event_type: 'call';
 
   /**
-   * HaloBot 事件类型
+   * 来源插件的名字空间
    */
-  halo_event_type: 'call';
+  from: string;
 
   /**
    * 目标插件名字空间
    */
-  target?: string;
+  target: string;
 
   /**
    * 方法名

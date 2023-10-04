@@ -10,7 +10,7 @@ interface MainMessage {
 }
 
 /* Logger */
-const logger: Logger = new Logger('WorkerThread');
+const logger: Logger = new Logger('Worker 线程');
 logger.info('Worker 线程已启动');
 
 /* Start up */
@@ -23,17 +23,17 @@ process.on('unhandledRejection', (reason: unknown): void => {
 
 try {
   logger.info('正在实例化 HaloBot');
-  const { start, stop } = await Bot.create();
+  const bot: Bot = await Bot.create();
 
   parentPort?.on('message', (msg: MainMessage): void => {
     switch (msg.type) {
       case 'terminate':
-        stop();
+        bot.stop();
         break;
     }
   });
 
-  await start();
+  await bot.start();
 } catch (err: unknown) {
   logger.fatal('无法实例化 HaloBot', err);
   setTimeout((): never => {

@@ -9,7 +9,7 @@ const dirname: string = getDirname();
 const workerPath: string = join(dirname, './worker.min.mjs');
 
 /* Logger */
-const logger: Logger = new Logger('Main');
+const logger: Logger = new Logger('主线程');
 
 /* Worker */
 let worker: Worker;

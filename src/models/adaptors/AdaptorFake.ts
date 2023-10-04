@@ -5,13 +5,13 @@ import {
   Adaptor,
   AdaptorPromiseCallbacks
 } from './Adaptor';
-import { Logger } from './Logger';
+import { Logger } from '../Logger';
 import express from 'express';
 
 /* Export class */
 export class AdaptorFake extends Adaptor {
   /* Logger */
-  private logger: Logger = new Logger('Adaptor:Fake');
+  private logger: Logger = new Logger('适配器:虚拟');
 
   /* Send and receive */
   public async send(
@@ -37,10 +37,10 @@ export class AdaptorFake extends Adaptor {
   private constructor() {
     super();
   }
-  public static create(port: number, path?: string): Promise<Adaptor> {
-    return new Promise<AdaptorFake>(
+  public static create(port: number, path?: string): Promise<void> {
+    return new Promise<void>(
       (
-        resolve: (value: AdaptorFake) => void,
+        resolve: (value: void) => void,
         reject: (reason?: any) => void
       ): void => {
         // Create http server
@@ -100,7 +100,8 @@ export class AdaptorFake extends Adaptor {
           .listen(port, (): void => {
             ret.logger.debug('适配器已创建');
             started = true;
-            resolve(ret);
+            Adaptor.instance = ret;
+            resolve();
           })
           .on('error', (err): void => {
             if (!started) {

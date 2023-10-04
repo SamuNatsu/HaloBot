@@ -7,7 +7,7 @@ import {
   AdaptorPromiseCallbacks
 } from './Adaptor';
 import JB from 'json-bigint';
-import { Logger } from './Logger';
+import { Logger } from '../Logger';
 
 const JSONbig = JB({
   useNativeBigInt: true,
@@ -17,7 +17,7 @@ const JSONbig = JB({
 /* Export class */
 export class AdaptorReverseWebSocket extends Adaptor {
   /* Properties */
-  private logger: Logger = new Logger('Adaptor:ReverseWebsocket');
+  private logger: Logger = new Logger('适配器:反向 WebSocket');
   private socket?: WebSocket;
 
   /* Send and receive */
@@ -55,10 +55,10 @@ export class AdaptorReverseWebSocket extends Adaptor {
   }
 
   /* Constructor */
-  public static create(port: number, path?: string): Promise<Adaptor> {
-    return new Promise<AdaptorReverseWebSocket>(
+  public static create(port: number, path?: string): Promise<void> {
+    return new Promise<void>(
       (
-        resolve: (value: AdaptorReverseWebSocket) => void,
+        resolve: (value: void) => void,
         reject: (reason?: any) => void
       ): void => {
         // Create server
@@ -76,7 +76,8 @@ export class AdaptorReverseWebSocket extends Adaptor {
         // Set event listeners
         server.on('listening', (): void => {
           ret.logger.debug('适配器已创建');
-          resolve(ret);
+          Adaptor.instance = ret;
+          resolve();
         });
         server.on('error', (err: Error): void => {
           ret.logger.error('适配器错误', err);

@@ -12,7 +12,7 @@ export const schema: joi.ObjectSchema = joi
           .required(),
         name: joi.string().required(),
         author: joi.string().required(),
-        description: joi.string().required(),
+        description: joi.string().allow('').required(),
         priority: joi.number().integer().min(1).max(100).required(),
         version: joi
           .string()

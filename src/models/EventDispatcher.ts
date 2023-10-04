@@ -1,74 +1,87 @@
 /// Event dispatcher model
 import { Plugin } from '../interfaces/Plugin';
-import { CallHaloEvent } from '../interfaces/halo_event';
-import {
-  GroupMessageEvent,
-  PrivateMessageEvent
-} from '../interfaces/message_event';
-import { LifecycleMetaEvent } from '../interfaces/meta_event';
-import {
-  FriendAddNoticeEvent,
-  FriendOfflineFileNoticeEvent,
-  FriendRecallNoticeEvent,
-  GroupAdminNoticeEvent,
-  GroupBanNoticeEvent,
-  GroupCardNoticeEvent,
-  GroupDecreaseNoticeEvent,
-  GroupEssenceNoticeEvent,
-  GroupHonorNotifyNoticeEvent,
-  GroupIncreaseNoticeEvent,
-  GroupLuckyKingNotifyNoticeEvent,
-  GroupRecallNoticeEvent,
-  GroupTitleNotifyNoticeEvent,
-  GroupUploadNoticeEvent,
-  PokeNotifyNoticeEvent
-} from '../interfaces/notice_event';
-import {
-  FriendRequestEvent,
-  GroupRequestEvent
-} from '../interfaces/request_event';
-import { deepFreezeObject, overflowTrunc, replaceWhitespaces } from '../utils';
+import { CallHaloEvent } from '../interfaces/events/halo/CallHaloEvent';
+import { GroupMessageEvent } from '../interfaces/events/message/GroupMessageEvent';
+import { PrivateMessageEvent } from '../interfaces/events/message/PrivateMessageEvent';
+import { LifecycleMetaEvent } from '../interfaces/events/meta/LifecycleMetaEvent';
+import { FriendAddNoticeEvent } from '../interfaces/events/notice/FriendAddNoticeEvent';
+import { FriendOfflineFileNoticeEvent } from '../interfaces/events/notice/FriendOfflineFileNoticeEvent';
+import { FriendRecallNoticeEvent } from '../interfaces/events/notice/FriendRecallNoticeEvent';
+import { GroupAdminNoticeEvent } from '../interfaces/events/notice/GroupAdminNoticeEvent';
+import { GroupBanNoticeEvent } from '../interfaces/events/notice/GroupBanNoticeEvent';
+import { GroupCardNoticeEvent } from '../interfaces/events/notice/GroupCardNoticeEvent';
+import { GroupDecreaseNoticeEvent } from '../interfaces/events/notice/GroupDecreaseNoticeEvent';
+import { GroupEssenceNoticeEvent } from '../interfaces/events/notice/GroupEssenceNoticeEvent';
+import { GroupHonorNotifyNoticeEvent } from '../interfaces/events/notice/GroupHonorNotifyNoticeEvent';
+import { GroupIncreaseNoticeEvent } from '../interfaces/events/notice/GroupIncreaseNoticeEvent';
+import { GroupLuckyKingNotifyNoticeEvent } from '../interfaces/events/notice/GroupLuckyKingNotifyNoticeEvent';
+import { GroupRecallNoticeEvent } from '../interfaces/events/notice/GroupRecallNoticeEvent';
+import { GroupTitleNotifyNoticeEvent } from '../interfaces/events/notice/GroupTitleNotifyNoticeEvent';
+import { GroupUploadNoticeEvent } from '../interfaces/events/notice/GroupUploadNoticeEvent';
+import { PokeNotifyNoticeEvent } from '../interfaces/events/notice/PokeNotifyNoticeEvent';
+import { FriendRequestEvent } from '../interfaces/events/request/FriendRequestEvent';
+import { GroupRequestEvent } from '../interfaces/events/request/GroupRequestEvent';
+import { deepFreezeObject, truncText } from '../utils';
 import { Logger } from './Logger';
 
 /* Export class */
 export class EventDispatcher {
   /* Properties */
-  private logger: Logger = new Logger('EventDispatcher');
-  private listenerMap: Map<string, [string, Function][]> = new Map();
+  private static instance?: EventDispatcher;
+
+  private logger: Logger = new Logger('事件分发器');
+  private listenerMap: Map<
+    string,
+    { namespace: string; listener: Function }[]
+  > = new Map();
+
+  public enable: boolean = false;
 
   /* Methods */
-  private relay(name: string, ev: any): void {
-    const listeners: [string, Function][] | undefined =
+  private emit(name: string, ev: any): void {
+    // Get listeners
+    const listeners: { namespace: string; listener: Function }[] | undefined =
       this.listenerMap.get(name);
     if (listeners === undefined) {
       return;
     }
+
+    // Emit listeners
     for (const i of listeners) {
       try {
-        i[1](ev);
+        i.listener(ev);
       } catch (err: unknown) {
         this.logger.error(
-          `插件 [${i[0]}] 抛出了未被捕获的错误于：${name}`,
+          `插件 [${i.namespace}] 抛出了未被捕获的错误于：${name}`,
           err
         );
       }
     }
   }
-  private relayTarget(name: string, target: string, ev: CallHaloEvent): void {
-    const listeners: [string, Function][] | undefined =
+
+  private emitTarget(name: string, target: string, ev: CallHaloEvent): void {
+    // Get listeners
+    const listeners: { namespace: string; listener: Function }[] | undefined =
       this.listenerMap.get(name);
     if (listeners === undefined) {
       return;
     }
-    const tgt: [string, Function] | undefined = listeners.find(
-      (value: [string, Function]): boolean => value[0] === target
+
+    // Get target
+    const targetListener:
+      | { namespace: string; listener: Function }
+      | undefined = listeners.find(
+      (value: { namespace: string; listener: Function }): boolean =>
+        value.namespace === target
     );
-    if (tgt === undefined) {
+    if (targetListener === undefined) {
       ev.reject(new Error(`不存在可以响应方法调用的插件: ${target}`));
       return;
     }
+
+    // Emit listner
     try {
-      tgt[1](ev);
+      targetListener.listener(ev);
     } catch (err: unknown) {
       this.logger.error(
         `插件 [${target}] 抛出了未被捕获的错误于：${name}`,
@@ -79,35 +92,42 @@ export class EventDispatcher {
 
   public register(plugin: Plugin): void {
     for (const i in plugin) {
+      // Check listener
       if (!/^on[A-Z]/.test(i) || !(typeof plugin[i] === 'function')) {
         continue;
       }
+
+      // Check map key
       if (!this.listenerMap.has(i)) {
         this.listenerMap.set(i, []);
       }
-      this.listenerMap
-        .get(i)
-        ?.push([plugin.meta.namespace, (plugin[i] as Function).bind(plugin)]);
+
+      // Add listener
+      this.listenerMap.get(i)?.push({
+        namespace: plugin.meta.namespace,
+        listener: (plugin[i] as Function).bind(plugin)
+      });
     }
   }
+
   public clear(): void {
     this.listenerMap.clear();
   }
+
   public dispatch(ev: any): void {
+    // Check enabled
+    if (!this.enable) {
+      return;
+    }
+
+    // Freeze event object
     deepFreezeObject(ev);
+
+    // Dispatch event
     switch (ev.post_type) {
       case 'message':
       case 'message_sent':
         switch (ev.message_type) {
-          case 'private': {
-            const tmp: PrivateMessageEvent = ev;
-            this.logger.info(
-              `收到 ${tmp.sender.nickname}[${tmp.user_id}] 的消息 (${tmp.message_id})`,
-              overflowTrunc(replaceWhitespaces(tmp.raw_message))
-            );
-            this.relay('onPrivateMessage', tmp);
-            break;
-          }
           case 'group': {
             const tmp: GroupMessageEvent = ev;
             this.logger.info(
@@ -115,10 +135,19 @@ export class EventDispatcher {
                 tmp.sender.card?.length === 0
                   ? tmp.sender.nickname
                   : tmp.sender.card
-              }[${tmp.user_id}] 的消息 (${tmp.message_id})`,
-              overflowTrunc(replaceWhitespaces(tmp.raw_message))
+              }[${tmp.user_id}] 发送的消息 (${tmp.message_id})`,
+              truncText(tmp.raw_message)
             );
-            this.relay('onGroupMessage', tmp);
+            this.emit('onGroupMessage', tmp);
+            break;
+          }
+          case 'private': {
+            const tmp: PrivateMessageEvent = ev;
+            this.logger.info(
+              `收到 ${tmp.sender.nickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`,
+              truncText(tmp.raw_message)
+            );
+            this.emit('onPrivateMessage', tmp);
             break;
           }
           default:
@@ -130,7 +159,7 @@ export class EventDispatcher {
           case 'friend_recall': {
             const tmp: FriendRecallNoticeEvent = ev;
             this.logger.info(`[${tmp.user_id}] 撤回了消息 (${tmp.message_id})`);
-            this.relay('onFriendRecall', tmp);
+            this.emit('onFriendRecall', tmp);
             break;
           }
           case 'group_recall': {
@@ -138,7 +167,7 @@ export class EventDispatcher {
             this.logger.info(
               `群 [${tmp.group_id}] 内 [${tmp.operator_id}] 撤回了 [${tmp.user_id}] 发送的消息 (${tmp.message_id})`
             );
-            this.relay('onFriendRecall', tmp);
+            this.emit('onFriendRecall', tmp);
             break;
           }
           case 'group_increase': {
@@ -148,7 +177,7 @@ export class EventDispatcher {
                 tmp.sub_type === 'approve' ? '同意' : '邀请'
               } [${tmp.user_id}] 加入`
             );
-            this.relay('onGroupIncrease', tmp);
+            this.emit('onGroupIncrease', tmp);
             break;
           }
           case 'group_decrease': {
@@ -160,7 +189,7 @@ export class EventDispatcher {
                   : `将成员 [${tmp.user_id}] 踢出群聊`
               }`
             );
-            this.relay('onGroupDecrease', tmp);
+            this.emit('onGroupDecrease', tmp);
             break;
           }
           case 'group_admin': {
@@ -170,7 +199,7 @@ export class EventDispatcher {
                 tmp.sub_type === 'set' ? '被设为管理员' : '被移除管理员'
               }`
             );
-            this.relay('onGroupAdmin', tmp);
+            this.emit('onGroupAdmin', tmp);
             break;
           }
           case 'group_upload': {
@@ -178,7 +207,7 @@ export class EventDispatcher {
             this.logger.info(
               `群 [${tmp.group_id}] 内 [${tmp.user_id}] 上传了文件: ${tmp.file.name}`
             );
-            this.relay('onGroupUpload', tmp);
+            this.emit('onGroupUpload', tmp);
             break;
           }
           case 'group_ban': {
@@ -188,13 +217,13 @@ export class EventDispatcher {
                 tmp.sub_type === 'ban' ? '禁言了' : '解除禁言了'
               } 成员 [${tmp.user_id}]`
             );
-            this.relay('onGroupBan', tmp);
+            this.emit('onGroupBan', tmp);
             break;
           }
           case 'friend_add': {
             const tmp: FriendAddNoticeEvent = ev;
             this.logger.info(`新增了好友 [${tmp.user_id}]`);
-            this.relay('onFriendAdd', tmp);
+            this.emit('onFriendAdd', tmp);
             break;
           }
           case 'notify':
@@ -208,7 +237,7 @@ export class EventDispatcher {
                 } else {
                   this.logger.info(`[${tmp.user_id}] 戳了你`);
                 }
-                this.relay('onPoke', tmp);
+                this.emit('onPoke', tmp);
                 break;
               }
               case 'lucky_king': {
@@ -216,7 +245,7 @@ export class EventDispatcher {
                 this.logger.info(
                   `群 [${tmp.group_id}] 内 [${tmp.user_id}] 发送的红包产生了运气王 [${tmp.target_id}]`
                 );
-                this.relay('onGroupLuckyKing', tmp);
+                this.emit('onGroupLuckyKing', tmp);
                 break;
               }
               case 'honor': {
@@ -224,7 +253,7 @@ export class EventDispatcher {
                 this.logger.info(
                   `群 [${tmp.group_id}] 内 [${tmp.user_id}] 获得了荣誉: ${tmp.honor_type}`
                 );
-                this.relay('onGroupHonor', tmp);
+                this.emit('onGroupHonor', tmp);
                 break;
               }
               case 'title': {
@@ -232,7 +261,7 @@ export class EventDispatcher {
                 this.logger.info(
                   `群 [${tmp.group_id}] 内 [${tmp.user_id}] 获得了头衔: ${tmp.title}`
                 );
-                this.relay('onGroupTitle', tmp);
+                this.emit('onGroupTitle', tmp);
                 break;
               }
               default:
@@ -244,7 +273,7 @@ export class EventDispatcher {
             this.logger.info(
               `群 [${tmp.group_id}] 内 [${tmp.user_id}] 更新了群名片: "${tmp.card_old}" -> "${tmp.card_new}"`
             );
-            this.relay('onGroupCard', tmp);
+            this.emit('onGroupCard', tmp);
             break;
           }
           case 'offline_file': {
@@ -252,11 +281,11 @@ export class EventDispatcher {
             this.logger.info(
               `收到 [${tmp.user_id}] 的离线文件: ${tmp.file.name}`
             );
-            this.relay('onFriendOfflineFile', tmp);
+            this.emit('onFriendOfflineFile', tmp);
             break;
           }
           case 'client_status': {
-            this.relay('onClientStatus', ev);
+            this.emit('onClientStatus', ev);
             break;
           }
           case 'essence': {
@@ -266,7 +295,7 @@ export class EventDispatcher {
                 tmp.sub_type === 'add' ? '添加了' : '移除了'
               } 精华消息 (${tmp.message_id})`
             );
-            this.relay('onGroupEssence', tmp);
+            this.emit('onGroupEssence', tmp);
             break;
           }
           default:
@@ -279,9 +308,9 @@ export class EventDispatcher {
             const tmp: FriendRequestEvent = ev;
             this.logger.info(
               `收到 [${tmp.user_id}] 的好友请求`,
-              overflowTrunc(replaceWhitespaces(tmp.comment))
+              truncText(tmp.comment)
             );
-            this.relay('onFriendRequest', tmp);
+            this.emit('onFriendRequest', tmp);
             break;
           }
           case 'group': {
@@ -290,9 +319,9 @@ export class EventDispatcher {
               `收到 [${tmp.user_id}] 的加群 [${tmp.group_id}] ${
                 tmp.sub_type === 'add' ? '请求' : '邀请'
               }`,
-              overflowTrunc(replaceWhitespaces(tmp.comment))
+              truncText(tmp.comment)
             );
-            this.relay('onGroupRequest', tmp);
+            this.emit('onGroupRequest', tmp);
             break;
           }
           default:
@@ -302,7 +331,7 @@ export class EventDispatcher {
       case 'meta_event':
         switch (ev.meta_event_type) {
           case 'heartbeat':
-            this.relay('onHeartbeat', ev);
+            this.emit('onHeartbeat', ev);
             break;
           case 'lifecycle': {
             const tmp: LifecycleMetaEvent = ev;
@@ -315,7 +344,7 @@ export class EventDispatcher {
                   : '启用'
               }`
             );
-            this.relay('onLifecycle', tmp);
+            this.emit('onLifecycle', tmp);
             break;
           }
           default:
@@ -326,15 +355,10 @@ export class EventDispatcher {
         switch (ev.halo_event_type) {
           case 'call': {
             const tmp: CallHaloEvent = ev;
-            if (tmp.target !== undefined) {
-              this.logger.info(
-                `收到上报给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`
-              );
-              this.relayTarget('onCall', tmp.target, tmp);
-            } else {
-              this.logger.info(`收到全局方法调用: ${tmp.method_name}`);
-              this.relay('onCall', tmp);
-            }
+            this.logger.info(
+              `收到插件 [${tmp.from}] 发送给插件 [${tmp.target}] 的方法调用: ${tmp.method_name}`
+            );
+            this.emitTarget('onCall', tmp.target, tmp);
             break;
           }
           default:
@@ -345,5 +369,14 @@ export class EventDispatcher {
       default:
         this.logger.error('检测到未知的上报', ev);
     }
+  }
+
+  /* Singleton */
+  private constructor() {}
+  public static getInstance(): EventDispatcher {
+    if (EventDispatcher.instance === undefined) {
+      EventDispatcher.instance = new EventDispatcher();
+    }
+    return EventDispatcher.instance;
   }
 }

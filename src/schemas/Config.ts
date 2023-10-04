@@ -22,7 +22,7 @@ export const schema: joi.ObjectSchema = joi
                 .object({
                   http_forward: joi.string().uri().required(),
                   http_reverse_port: joi.number().port().required(),
-                  http_reverse_path: joi.string().uri()
+                  http_reverse_path: joi.string()
                 })
                 .required()
             },
@@ -43,7 +43,7 @@ export const schema: joi.ObjectSchema = joi
                   }),
                   ws_reverse_path: joi.any().when('ws_type', {
                     is: 'reverse',
-                    then: joi.string().uri(),
+                    then: joi.string(),
                     otherwise: joi.forbidden()
                   })
                 })
@@ -54,7 +54,7 @@ export const schema: joi.ObjectSchema = joi
               then: joi
                 .object({
                   fake_reverse_port: joi.number().port().required(),
-                  fake_reverse_path: joi.string().uri()
+                  fake_reverse_path: joi.string()
                 })
                 .required()
             }

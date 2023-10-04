@@ -1,9 +1,9 @@
-/// CQ event interface
+/// Event interface
 
 /**
- * Go-CqHttp 通用事件
+ * 通用事件
  */
-export interface CqEvent {
+export interface Event {
   /**
    * 事件发生的 Unix 时间戳
    */
@@ -19,7 +19,7 @@ export interface CqEvent {
    */
   post_type:
     | 'message'
-    | 'message_send'
+    | 'message_sent'
     | 'request'
     | 'notice'
     | 'meta_event'
