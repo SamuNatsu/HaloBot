@@ -18,7 +18,7 @@ const renderParamSchema = joi.object({
   }),
   action: joi.function(),
   target: joi.string().required(),
-  path: joi.string().required()
+  path: joi.string()
 });
 
 /* Export plugin */
@@ -47,7 +47,6 @@ export default definePlugin({
   },
   async renderWorker(task) {
     this.logger.info('收到新的渲染任务');
-    clearTimeout(this.timeout);
 
     // Verify params
     const { error } = renderParamSchema.validate(task.params);
@@ -81,17 +80,22 @@ export default definePlugin({
     }
 
     // Create screenshot
-    await page.screenshot({ path: task.params.path });
-    this.logger.info(`渲染图片已输出至: ${task.params.path}`);
+    const b64 = await page.screenshot({
+      path: task.params.path,
+      encoding: 'base64'
+    });
+    if (task.params.path !== undefined) {
+      this.logger.info(`渲染图片已输出至: ${task.params.path}`);
+    }
 
     // Cleanup
     await page.close();
     this.logger.info('渲染完成');
-    task.resolve();
+    task.resolve(b64);
   },
   async onStart() {
     // Read config
-    this.config = this.bot.utils.readYamlFile(
+    this.config = this.api.readYamlFile(
       path.join(this.currentPluginDir, './config.yaml')
     );
     const { error, value } = configSchema.validate(this.config);
@@ -133,6 +137,7 @@ export default definePlugin({
   async onCall(ev) {
     switch (ev.method_name) {
       case 'render': {
+        clearTimeout(this.timeout);
         this.queue.push(ev);
         this.logger.info(
           `已添加 1 个任务至队列，现在队列中有 ${this.queue.length()} 个任务`

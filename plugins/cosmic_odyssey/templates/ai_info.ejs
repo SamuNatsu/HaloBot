@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="css/modern-normalize.min.css"/>
+    <link rel="stylesheet" href="css/font_faces.css"/>
+    <link rel="stylesheet" href="css/ai_info.css"/>
+  </head>
+  <body>
+    <div id="bg"></div>
+    <div class="info-box">
+      <div class="info-box__status">
+        <div class="info-box__status__title">核心状态</div>
+        <div <%- health < 0.3 ? 'style="color:red"' : '' %>><%= Math.floor(health * 100) %>%</div>
+        <div class="info-box__status__title">训练状态</div>
+        <div><%= Math.floor(training * 100) %>%</div>
+        <div class="info-box__status__title">软体稳定度</div>
+        <div <%- stability < 0.3 ? 'style="color:red"' : '' %>><%= Math.floor(stability * 100) %>%</div>
+      </div>
+      <div class="info-box__basic">
+        <img class="info-box__basic__avatar" src="<%= avatar %>"/>
+        <div class="info-box__basic__info">
+          <div class="info-box__basic__info__header">
+            <div class="info-box__basic__info__header__name"><%= name %></div>
+            <div class="tier-box">
+              <%
+                const tierName = ['Malkuth', 'Yesod', 'Hod', 'Netzach','Tiphereth', 'Geburah', 'Chesed', 'Binah', 'Chokmah', 'Kether'];
+                const tierTag = ['00', '0', 'I', 'II', 'III', 'IV', 'V', 'VI','?', '?'];
+              %>
+              <div class="tier-box__name" <%= tierName[tier] %>><%= tierName[tier] %></div>
+              <div class="tier-box__lv"><%= tierTag[tier] %></div>
+            </div>
+          </div>
+          <div class="level-box">
+            <div class="level-box__header">
+              <div class="level-box__header__lv">
+                <div class="level-box__header__lv__text">LV</div>
+                <div class="level-box__header__lv__value"><%= level %></div>
+              </div>
+              <% const nextExp = Math.floor(Math.log(level + 1) * 1000); %>
+              <div class="level-box__header__exp"><%= curExp %>/<%= nextExp %></div>
+            </div>
+            <div class="level-box__progress">
+              <%
+                const expPer = 1 - curExp / nextExp;
+                const expStyle = `clip-path: inset(0 ${expPer * 100}% 0 0)`;
+              %>
+              <div class="level-box__progress__inner" style="<%= expStyle %>"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="info-box__value">
+        <%- radarChart %>
+        <div class="info-box__value__detail">
+          <%
+            const propTiers = properties.map((value) => {
+              value /= 1000;
+              if (value < 0.25) {
+                return 'C';
+              } else if (value < 0.5) {
+                return 'B';
+              } else if (value < 0.75) {
+                return 'A';
+              } else {
+                return 'S';
+              }
+            });
+          %>
+          <div class="info-box__value__detail__data"><%= properties[0] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[0] %>>计算</div>
+            <div>决定 AI 整体工作增益</div>
+          </div>
+          <div class="info-box__value__detail__data"><%= properties[1] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[1] %>>成长</div>
+            <div>决定 AI 的能力上限</div>
+          </div>
+          <div class="info-box__value__detail__data"><%= properties[2] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[2] %>>控制</div>
+            <div>决定 AI 飞船操纵的精度与能力</div>
+          </div>
+          <div class="info-box__value__detail__data"><%= properties[3] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[3] %>>导航</div>
+            <div>决定 AI 在折跃和迁移时的路线规划能力</div>
+          </div>
+          <div class="info-box__value__detail__data"><%= properties[4] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[4] %>>搜索</div>
+            <div>决定 AI 在搜索视距范围内信息的能力</div>
+          </div>
+          <div class="info-box__value__detail__data"><%= properties[5] %></div>
+          <div>
+            <div class="info-box__value__detail__title" <%= propTiers[5] %>>战斗</div>
+            <div>决定 AI 对战斗的掌握程度</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

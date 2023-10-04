@@ -1,0 +1,19 @@
+@font-face {
+  font-family: transformer;
+  src: url('../fonts/Transformers_Movie.ttf');
+}
+
+@font-face {
+  font-family: ea-sports;
+  src: url('../fonts/EASPORTS15.ttf');
+}
+
+@font-face {
+  font-family: coolvetica;
+  src: url('../fonts/coolvetica_rg.otf');
+}
+
+@font-face {
+  font-family: smiley;
+  src: url('../fonts/SmileySans-Oblique.ttf.woff2');
+}

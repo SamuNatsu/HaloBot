@@ -63,7 +63,7 @@ const loraSchema = joi.object({
 /* Export plugin */
 export default definePlugin({
   meta: {
-    namespace: 'rainiar.sd',
+    namespace: 'rainiar.stable_diffusion',
     name: 'StableDiffusion',
     author: 'SNRainiar',
     description: '用于 HaloBot 的 StableDiffusion 插件',
@@ -96,7 +96,7 @@ export default definePlugin({
       const filePath = path.join(loraDir, value);
       try {
         // Read category
-        let lora = this.bot.utils.readYamlFile(filePath);
+        let lora = this.api.readYamlFile(filePath);
         const { error, value } = loraSchema.validate(lora);
         if (error !== undefined) {
           throw error;
@@ -168,7 +168,6 @@ export default definePlugin({
         }
         return { category: value[0], list: ret };
       });
-    const tot = 1 + ct.reduce((value, cur) => value + cur.list.length, 0);
     let pgs = [`【Lora 分类目录】\n`];
     let acc = 1;
     let bcc = 2;
@@ -319,7 +318,9 @@ export default definePlugin({
           .map((value) => `[${value.name}] ??? (${value.weight})`)
           .join('\n');
     }
-    this.bot.reply(task.ev, msg);
+    if (task.resolve === undefined) {
+      this.api.reply(task.ev, msg);
+    }
 
     // Get group config
     let group;
@@ -329,7 +330,7 @@ export default definePlugin({
 
     // Create params
     let finalPrompt;
-    if (task.ev.message_type === 'private') {
+    if (task.ev.message_type === 'private' || task.resolve !== undefined) {
       finalPrompt = [this.config.prepend_prompt, newPrompt]
         .map((value) => value.trim())
         .filter((value) => value.length !== 0)
@@ -346,7 +347,7 @@ export default definePlugin({
     }
 
     let finalNegativePrompt;
-    if (task.ev.message_type === 'private') {
+    if (task.ev.message_type === 'private' || task.resolve !== undefined) {
       finalNegativePrompt = [
         this.config.prepend_negative_prompt,
         task.negativePrompt
@@ -416,11 +417,17 @@ export default definePlugin({
     const json = await res.json();
     json.info = JSON.parse(json.info);
 
+    // If is call
+    if (task.resolve !== undefined) {
+      task.resolve(json.images[0]);
+      return;
+    }
+
     // Save image
     this.saveImage(task.ev, params, json.images[0]);
 
     // Send msg
-    this.bot.reply(
+    this.api.reply(
       task.ev,
       `${
         task.ev.message_type === 'group'
@@ -436,7 +443,7 @@ export default definePlugin({
   },
   async onStart() {
     // Initialize config
-    this.config = this.bot.utils.readYamlFile(
+    this.config = this.api.readYamlFile(
       path.join(this.currentPluginDir, './config.yaml')
     );
     const { error, value } = configSchema.validate(this.config);
@@ -457,7 +464,6 @@ export default definePlugin({
     this.readLoraList();
 
     // Initialize database
-    this.db = this.bot.utils.openCurrentPluginDB(import.meta.url);
     await this.db.transaction(async (trx) => {
       // Check options table
       let ret = await trx.schema.hasTable('options');
@@ -495,7 +501,7 @@ export default definePlugin({
     });
 
     // Initialize tutorial
-    this.tutorials = this.bot.utils.readYamlFile(
+    this.tutorials = this.api.readYamlFile(
       path.join(this.currentPluginDir, './tutorials.yaml')
     );
 
@@ -503,10 +509,16 @@ export default definePlugin({
     this.queue = async.queue(this.generateWorker.bind(this), 1);
     this.queue.error((err, task) => {
       this.logger.error('生成出错', err, task);
+
+      if (task.resolve !== undefined) {
+        task.reject(err);
+        return;
+      }
+
       if (task.ev.message_type === 'private') {
-        this.bot.reply(task.ev, '生成失败\n请联系管理员检查错误');
+        this.api.reply(task.ev, '生成失败\n请联系管理员检查错误');
       } else {
-        this.bot.reply(
+        this.api.reply(
           task.ev,
           `[CQ:at,qq=${task.ev.user_id}] 生成失败\n请联系管理员检查错误`
         );
@@ -522,10 +534,10 @@ export default definePlugin({
     // Setup command parser
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
-    const program = this.bot.utils.createCommandProgram();
+    const program = this.api.createCommandProgram();
 
     program.action(() => {
-      this.bot.reply(
+      this.api.reply(
         ev,
         `【StableDiffusion 插件】
 Ver ${this.meta.version}
@@ -541,7 +553,7 @@ Ver ${this.meta.version}
       .action((sub) => {
         switch (sub) {
           case undefined:
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【插件帮助】
 [#sd help draw] 查看绘图帮助
@@ -552,7 +564,7 @@ Ver ${this.meta.version}
             );
             break;
           case 'draw':
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【绘图帮助】
   建议在私聊里查看教程以避免刷屏
@@ -561,7 +573,7 @@ Ver ${this.meta.version}
             );
             break;
           case 'lora':
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【Lora 帮助】
 建议在私聊里查看 Lora 信息以避免刷屏
@@ -571,10 +583,10 @@ Ver ${this.meta.version}
             break;
           case 'manage':
             if (this.config.manager !== String(ev.user_id)) {
-              this.bot.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
+              this.api.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
               break;
             }
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【管理帮助】
 以下命令只能通过私聊触发，且只有插件管理员能得到响应。
@@ -588,7 +600,7 @@ Ver ${this.meta.version}
             );
             break;
           default:
-            this.bot.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
+            this.api.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
         }
       });
 
@@ -598,15 +610,15 @@ Ver ${this.meta.version}
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.reply(ev, `页码不合法`);
+          this.api.reply(ev, `页码不合法`);
           return;
         }
         if (page > this.tutorials.length) {
-          this.bot.reply(ev, `没有更多的页了`);
+          this.api.reply(ev, `没有更多的页了`);
           return;
         }
 
-        this.bot.reply(
+        this.api.reply(
           ev,
           `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
             page - 1
@@ -628,7 +640,7 @@ Ver ${this.meta.version}
       .action(async (opt) => {
         // Check queue
         if (this.queue.length() >= this.config.queue_size) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
           );
@@ -637,47 +649,47 @@ Ver ${this.meta.version}
 
         // Validate
         if (!/^(2[0-9]|3[0-9]|40)$/.test(opt.iterationSteps)) {
-          this.bot.reply(ev, `迭代步数 (-i) 参数不合法`);
+          this.api.reply(ev, `迭代步数 (-i) 参数不合法`);
           return;
         }
         opt.iterationSteps = parseInt(opt.iterationSteps);
 
         if (opt.seed !== undefined) {
           if (!/^(0|[1-9]\d*)$/.test(opt.seed)) {
-            this.bot.reply(ev, `种子 (-s) 参数不合法`);
+            this.api.reply(ev, `种子 (-s) 参数不合法`);
             return;
           }
           opt.seed = parseInt(opt.seed);
         }
 
         if (!/^[1-9]\d*:[1-9]\d*$/.test(opt.ratio)) {
-          this.bot.reply(ev, `宽高比 (-r) 参数不合法`);
+          this.api.reply(ev, `宽高比 (-r) 参数不合法`);
           return;
         }
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
-          this.bot.reply(ev, `放大倍数 (-S) 参数不合法`);
+          this.api.reply(ev, `放大倍数 (-S) 参数不合法`);
           return;
         }
         opt.scale = parseFloat(opt.scale);
         if (opt.scale < 1 || opt.scale > 3) {
-          this.bot.reply(ev, `放大倍数 (-S) 参数不合法`);
+          this.api.reply(ev, `放大倍数 (-S) 参数不合法`);
           return;
         }
 
         if (!/^(0|1?\d|20)$/.test(opt.iterSteps)) {
-          this.bot.reply(ev, `迭代步数 (-I) 参数不合法`);
+          this.api.reply(ev, `迭代步数 (-I) 参数不合法`);
           return;
         }
         opt.iterSteps = parseInt(opt.iterSteps);
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.denoising)) {
-          this.bot.reply(ev, `重绘幅度 (-d) 参数不合法`);
+          this.api.reply(ev, `重绘幅度 (-d) 参数不合法`);
           return;
         }
         opt.denoising = parseFloat(opt.denoising);
         if (opt.denoising > 1) {
-          this.bot.reply(ev, `重绘幅度 (-d) 参数不合法`);
+          this.api.reply(ev, `重绘幅度 (-d) 参数不合法`);
           return;
         }
 
@@ -685,7 +697,7 @@ Ver ${this.meta.version}
         opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
         opt.ev = ev;
 
-        await this.bot.reply(
+        await this.api.reply(
           ev,
           `生成请求已提交\n你是等待队列的第 ${this.queue.length() + 1} 个`
         );
@@ -698,14 +710,14 @@ Ver ${this.meta.version}
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.reply(ev, `页码不合法`);
+          this.api.reply(ev, `页码不合法`);
           return;
         }
         if (page > this.loraTotalPage) {
-          this.bot.reply(ev, `没有更多的页了`);
+          this.api.reply(ev, `没有更多的页了`);
           return;
         }
-        this.bot.reply(ev, this.getLoraPage(page - 1));
+        this.api.reply(ev, this.getLoraPage(page - 1));
       });
 
     program
@@ -714,10 +726,10 @@ Ver ${this.meta.version}
       .action((ord) => {
         ord = parseInt(ord);
         if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
-          this.bot.reply(ev, `序号不合法`);
+          this.api.reply(ev, `序号不合法`);
           return;
         }
-        this.bot.reply(ev, this.getLoraInfo(ord - 1));
+        this.api.reply(ev, this.getLoraInfo(ord - 1));
       });
 
     program.command('groups').action(async () => {
@@ -730,9 +742,9 @@ Ver ${this.meta.version}
         (value) => `${value.group_id}${value.nsfw ? '🔞' : ''}`
       );
       if (groups.length === 0) {
-        this.bot.reply(ev, '插件没有在任何群中生效');
+        this.api.reply(ev, '插件没有在任何群中生效');
       } else {
-        this.bot.reply(ev, `插件在以下群中生效：\n${groups.join(', ')}`);
+        this.api.reply(ev, `插件在以下群中生效：\n${groups.join(', ')}`);
       }
     });
 
@@ -745,7 +757,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
@@ -759,7 +771,7 @@ Ver ${this.meta.version}
           .onConflict()
           .ignore();
 
-        this.bot.reply(ev, `插件已在群 [${groupId}] 中启用`);
+        this.api.reply(ev, `插件已在群 [${groupId}] 中启用`);
       });
 
     program
@@ -771,13 +783,13 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
         await this.db('enabled_groups').delete().where('group_id', groupId);
 
-        this.bot.reply(ev, `插件已在群 [${groupId}] 中禁用`);
+        this.api.reply(ev, `插件已在群 [${groupId}] 中禁用`);
       });
 
     program
@@ -789,7 +801,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
@@ -797,7 +809,7 @@ Ver ${this.meta.version}
           .update({ nsfw: false })
           .where('group_id', groupId);
 
-        this.bot.reply(ev, `群 [${groupId}] 已开启健全模式`);
+        this.api.reply(ev, `群 [${groupId}] 已开启健全模式`);
       });
 
     program
@@ -809,7 +821,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
@@ -817,7 +829,7 @@ Ver ${this.meta.version}
           .update({ nsfw: true })
           .where('group_id', groupId);
 
-        this.bot.reply(ev, `群 [${groupId}] 已开启不健全模式`);
+        this.api.reply(ev, `群 [${groupId}] 已开启不健全模式`);
       });
 
     program
@@ -830,7 +842,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
@@ -838,7 +850,7 @@ Ver ${this.meta.version}
           .update({ prepend_prompt: prompt })
           .where('group_id', groupId);
 
-        this.bot.reply(ev, `群 [${groupId}] 的附加正向提示词已更新`);
+        this.api.reply(ev, `群 [${groupId}] 的附加正向提示词已更新`);
       });
 
     program
@@ -851,7 +863,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^[1-9]\d*$/.test(groupId)) {
-          this.bot.reply(ev, `群号不合法`);
+          this.api.reply(ev, `群号不合法`);
           return;
         }
 
@@ -859,7 +871,7 @@ Ver ${this.meta.version}
           .update({ prepend_negative_prompt: prompt })
           .where('group_id', groupId);
 
-        this.bot.reply(ev, `群 [${groupId}] 的附加负向提示词已更新`);
+        this.api.reply(ev, `群 [${groupId}] 的附加负向提示词已更新`);
       });
 
     try {
@@ -882,10 +894,10 @@ Ver ${this.meta.version}
 
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
-    const program = this.bot.utils.createCommandProgram();
+    const program = this.api.createCommandProgram();
 
     program.action(() => {
-      this.bot.reply(
+      this.api.reply(
         ev,
         `【StableDiffusion 插件】
 Ver ${this.meta.version}
@@ -901,7 +913,7 @@ Ver ${this.meta.version}
       .action((sub) => {
         switch (sub) {
           case undefined:
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【插件帮助】
 [#sd help draw] 查看绘图帮助
@@ -909,7 +921,7 @@ Ver ${this.meta.version}
             );
             break;
           case 'draw':
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【绘图帮助】
 建议在私聊里查看教程以避免刷屏
@@ -918,7 +930,7 @@ Ver ${this.meta.version}
             );
             break;
           case 'lora':
-            this.bot.reply(
+            this.api.reply(
               ev,
               `【Lora 帮助】
 建议在私聊里查看 Lora 信息以避免刷屏
@@ -927,7 +939,7 @@ Ver ${this.meta.version}
             );
             break;
           default:
-            this.bot.reply(
+            this.api.reply(
               ev,
               `[CQ:at,qq=${ev.user_id}] 找不到名为 "${sub}" 的帮助子项`
             );
@@ -940,15 +952,15 @@ Ver ${this.meta.version}
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
+          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
           return;
         }
         if (page > this.tutorials.length) {
-          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
+          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
           return;
         }
 
-        this.bot.reply(
+        this.api.reply(
           ev,
           `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
             page - 1
@@ -970,7 +982,7 @@ Ver ${this.meta.version}
       .action(async (opt) => {
         // Check queue
         if (this.queue.length() >= this.config.queue_size) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 等待队列已满，你的请求提交失败\n队列还有 ${this.config.queue_size} 个正在等待`
           );
@@ -979,7 +991,7 @@ Ver ${this.meta.version}
 
         // Validate
         if (!/^(2[0-9]|3[0-9]|40)$/.test(opt.iterationSteps)) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 迭代步数 (-i) 参数不合法`
           );
@@ -989,19 +1001,19 @@ Ver ${this.meta.version}
 
         if (opt.seed !== undefined) {
           if (!/^(0|[1-9]\d*)$/.test(opt.seed)) {
-            this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 种子 (-s) 参数不合法`);
+            this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 种子 (-s) 参数不合法`);
             return;
           }
           opt.seed = parseInt(opt.seed);
         }
 
         if (!/^[1-9]\d*:[1-9]\d*$/.test(opt.ratio)) {
-          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 宽高比 (-r) 参数不合法`);
+          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 宽高比 (-r) 参数不合法`);
           return;
         }
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.scale)) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
           );
@@ -1009,7 +1021,7 @@ Ver ${this.meta.version}
         }
         opt.scale = parseFloat(opt.scale);
         if (opt.scale < 1 || opt.scale > 3) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 放大倍数 (-S) 参数不合法`
           );
@@ -1017,7 +1029,7 @@ Ver ${this.meta.version}
         }
 
         if (!/^(0|1?\d|20)$/.test(opt.iterSteps)) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 迭代步数 (-I) 参数不合法`
           );
@@ -1026,7 +1038,7 @@ Ver ${this.meta.version}
         opt.iterSteps = parseInt(opt.iterSteps);
 
         if (!/^(0|[1-9]\d*)(\.\d*[1-9])?$/.test(opt.denoising)) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
           );
@@ -1034,7 +1046,7 @@ Ver ${this.meta.version}
         }
         opt.denoising = parseFloat(opt.denoising);
         if (opt.denoising > 1) {
-          this.bot.reply(
+          this.api.reply(
             ev,
             `[CQ:at,qq=${ev.user_id}] 重绘幅度 (-d) 参数不合法`
           );
@@ -1045,7 +1057,7 @@ Ver ${this.meta.version}
         opt.query_time = moment().format('YYYY-MM-DD HH:mm:ss');
         opt.ev = ev;
 
-        await this.bot.reply(
+        await this.api.reply(
           ev,
           `[CQ:at,qq=${ev.user_id}] 生成请求已提交\n你是等待队列的第 ${
             this.queue.length() + 1
@@ -1060,11 +1072,11 @@ Ver ${this.meta.version}
       .action((page) => {
         page = parseInt(page);
         if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
+          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
           return;
         }
         page = this.getLoraPage(page - 1, group.nsfw);
-        this.bot.reply(ev, page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
+        this.api.reply(ev, page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
       });
 
     program
@@ -1073,17 +1085,42 @@ Ver ${this.meta.version}
       .action((ord) => {
         ord = parseInt(ord);
         if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
-          this.bot.reply(ev, `[CQ:at,qq=${ev.user_id}] 序号不合法`);
+          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 序号不合法`);
           return;
         }
         ord = this.getLoraInfo(ord - 1, group.nsfw);
-        this.bot.reply(ev, ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`);
+        this.api.reply(ev, ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`);
       });
 
     try {
       program.parse(argv, { from: 'user' });
     } catch (err) {
       this.logger.error('命令解析错误', err);
+    }
+  },
+  onCall(ev) {
+    switch (ev.method_name) {
+      case 'generate': {
+        const task = {
+          prompt: '',
+          negativePrompt: '',
+          iterationSteps: 25,
+          seed: -1,
+          ratio: '1:1',
+          hires: false,
+          scale: 2,
+          iterSteps: 10,
+          denoising: 0.2,
+          ...ev.params
+        };
+        task.resolve = ev.resolve;
+        task.reject = ev.reject;
+        task.ev = ev;
+        this.queue.push(task);
+        break;
+      }
+      default:
+        ev.reject(new Error(`不支持的方法: ${ev.method_name}`));
     }
   }
 });

@@ -1,0 +1,245 @@
+#bg {
+  background-color: #18181b;
+  background-image: repeating-linear-gradient(
+      45deg,
+      #000000 25%,
+      transparent 25%,
+      transparent 75%,
+      #000000 75%,
+      #000000
+    ),
+    repeating-linear-gradient(
+      45deg,
+      #000000 25%,
+      #18181b 25%,
+      #18181b 75%,
+      #000000 75%,
+      #000000
+    );
+  background-position: 0 0, 40px 40px;
+  background-size: 80px 80px;
+  height: 100%;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: -100;
+}
+
+/* Info box */
+.info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+  left: 0;
+  padding: 1.5rem;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 0;
+}
+.info-box__status {
+  align-items: center;
+  backdrop-filter: blur(4px);
+  border: 2px solid #777;
+  border-radius: 0.5rem;
+  box-shadow: #ccc 0 0 10px;
+  color: #fff;
+  display: grid;
+  font-family: smiley;
+  font-size: 1.2rem;
+  grid-template-columns: 7rem 1fr;
+  padding: 0.5rem;
+  position: absolute;
+  right: 3rem;
+  top: 3rem;
+}
+.info-box__status__title {
+  font-weight: bold;
+  padding: 0.3rem 0;
+}
+.info-box__basic {
+  align-self: flex-start;
+  backdrop-filter: blur(4px);
+  border: 2px solid #777;
+  border-radius: 0.5rem;
+  box-shadow: #ccc 0 0 10px;
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+}
+.info-box__basic__avatar {
+  box-shadow: #fff 0 0 5px;
+  height: 150px;
+  width: 150px;
+}
+.info-box__basic__info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.info-box__basic__info__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.info-box__basic__info__header__name {
+  color: #fff;
+  font-family: smiley;
+  font-size: 2.5rem;
+  letter-spacing: 0.2rem;
+}
+.info-box__value {
+  align-items: center;
+  backdrop-filter: blur(4px);
+  border: 2px solid #777;
+  border-radius: 0.5rem;
+  box-shadow: #ccc 0 0 10px;
+  display: flex;
+  gap: 2rem;
+  height: 100%;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 0 1rem;
+  width: 100%;
+}
+.info-box__value__detail {
+  align-items: center;
+  color: #fff;
+  display: grid;
+  font-family: smiley;
+  gap: 1rem;
+  grid-template-columns: 5rem 1fr;
+  padding: 0 2rem;
+}
+.info-box__value__detail__data {
+  font-family: transformer;
+  font-size: 1.5rem;
+  text-align: center;
+}
+.info-box__value__detail__title {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+.info-box__value__detail__title[S]::after {
+  color: red;
+  content: ' S';
+}
+.info-box__value__detail__title[A]::after {
+  color: orange;
+  content: ' A';
+}
+.info-box__value__detail__title[B]::after {
+  color: yellow;
+  content: ' B';
+}
+.info-box__value__detail__title[C]::after {
+  color: #22c55e;
+  content: ' C';
+}
+
+/* Tier box */
+.tier-box {
+  align-items: baseline;
+  color: #fff;
+  display: flex;
+  font-family: transformer;
+  gap: 0.3rem;
+}
+.tier-box__name {
+  font-size: 2rem;
+  letter-spacing: 0.2rem;
+}
+.tier-box__name[Kether] {
+  color: #ccc;
+  text-shadow: 0 0 2px #fff7;
+}
+.tier-box__name[Chokmah] {
+  color: #e11d48;
+  text-shadow: 0 0 2px #f007;
+}
+.tier-box__name[Binah] {
+  color: #dc2626;
+  text-shadow: 0 0 2px #f007;
+}
+.tier-box__name[Chesed] {
+  color: #ea580c;
+  text-shadow: 0 0 2px #f707;
+}
+.tier-box__name[Geburah] {
+  color: #9333ea;
+  text-shadow: 0 0 2px #f0f7;
+}
+.tier-box__name[Tiphereth] {
+  color: #0891b2;
+  text-shadow: 0 0 2px #0ff7;
+}
+.tier-box__name[Netzach] {
+  color: #2563eb;
+  text-shadow: 0 0 2px #00f7;
+}
+.tier-box__name[Hod] {
+  color: #059669;
+  text-shadow: 0 0 2px #0f07;
+}
+.tier-box__name[yesod] {
+  color: #57534e;
+  text-shadow: 0 0 2px #7007;
+}
+.tier-box__name[Yesod] {
+  color: #475569;
+  text-shadow: 0 0 2px #0077;
+}
+.tier-box__name[Malkuth] {
+  color: #57534e;
+  text-shadow: 0 0 2px #7007;
+}
+.tier-box__lv {
+  font-size: 1rem;
+}
+
+/* Level box */
+.level-box {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+}
+.level-box__header {
+  align-items: baseline;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  letter-spacing: 0.2rem;
+}
+.level-box__header__lv {
+  align-items: baseline;
+  display: flex;
+  gap: 0.5rem;
+}
+.level-box__header__lv__text {
+  color: #fde68a;
+  font-family: transformer;
+  font-size: 1.5rem;
+  letter-spacing: 0;
+}
+.level-box__header__lv__value {
+  font-family: ea-sports;
+  font-size: 2rem;
+}
+.level-box__header__exp {
+  font-family: coolvetica;
+  font-size: 1rem;
+  font-style: italic;
+}
+.level-box__progress {
+  border: 2px solid white;
+  border-radius: calc(0.25rem + 1px);
+  height: 0.5rem;
+  overflow: hidden;
+}
+.level-box__progress__inner {
+  background: white;
+  height: 100%;
+  width: 100%;
+}
