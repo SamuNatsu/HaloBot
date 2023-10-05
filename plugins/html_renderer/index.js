@@ -29,7 +29,7 @@ export default definePlugin({
     author: 'SNRainiar',
     description: '基于 Puppeteer 的 HTML 渲染器',
     priority: 1,
-    version: '1.0.0',
+    version: '2.0.0',
     botVersion: '1.0.0'
   },
   async createBrowser() {
@@ -80,18 +80,21 @@ export default definePlugin({
     }
 
     // Create screenshot
-    const b64 = await page.screenshot({
-      path: task.params.path,
-      encoding: 'base64'
-    });
     if (task.params.path !== undefined) {
+      await page.screenshot({ path: task.params.path });
       this.logger.info(`渲染图片已输出至: ${task.params.path}`);
+      task.resolve();
+    } else {
+      const b64 = await page.screenshot({
+        path: task.params.path,
+        encoding: 'base64'
+      });
+      task.resolve(b64);
     }
 
     // Cleanup
     await page.close();
     this.logger.info('渲染完成');
-    task.resolve(b64);
   },
   async onStart() {
     // Read config

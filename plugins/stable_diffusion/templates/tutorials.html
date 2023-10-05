@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+  </head>
+  <body>
+    <h1>Stable Diffusion 插件帮助</h1>
+    <hr/>
+    <h2>命令大全</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>命令格式</th>
+          <th>命令含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>#sd</td>
+          <td>打印插件基础信息</td>
+        </tr>
+        <tr>
+          <td>#sd help</td>
+          <td>打印此帮助图片</td>
+        </tr>
+        <tr>
+          <td>#sd lora-menu</td>
+          <td>打印 Lora 列表图片</td>
+        </tr>
+        <tr>
+          <td>#sd lora &lt;Lora 序号&gt;</td>
+          <td>打印某序号的 Lora 信息图片</td>
+        </tr>
+        <tr>
+          <td>#sd info</td>
+          <td>打印当前插件设置信息图片</td>
+        </tr>
+        <tr>
+          <td>#sd draw [...]</td>
+          <td>发起一个图片生成请求，具体用法请看下面</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>&emsp;</p>
+    <h2>图片生成命令教程</h2>
+    <p>图片生成主要使用的就是 <code>#sd draw</code> 命令，在它后面可以跟随很多参数来控制生成结果：</p>
+    <table>
+      <thead>
+        <tr>
+          <th>参数</th>
+          <th>含义</th>
+          <th>默认值</th>
+          <th>描述</th>
+        </tr>
+      </thead>
+      <tbody class="param-tbody">
+        <tr>
+          <td>-p &lt;tokens&gt;</td>
+          <td>正向提示词</td>
+          <td>""</td>
+          <td>一个使用英语双引号括住的字符串<br/>希望出现在图中的关键词，如："1girl,solo"</td>
+        </tr>
+        <tr>
+          <td>-n &lt;tokens&gt;</td>
+          <td>负向提示词</td>
+          <td>""</td>
+          <td>一个使用英语双引号括住的字符串<br/>不希望出现在图中的关键词，如："nsfw,low res"</td>
+        </tr>
+        <tr>
+          <td>-n &lt;steps&gt;</td>
+          <td>迭代步数</td>
+          <td>25</td>
+          <td>一个 20 到 40 的整数<br/>步数越少，图片越看不出细节</td>
+        </tr>
+        <tr>
+          <td>-s &lt;seed&gt;</td>
+          <td>种子</td>
+          <td>随机整数</td>
+          <td>一个正整数<br/>当其他参数不变时，固定种子可以保证生成完全一样的图</td>
+        </tr>
+        <tr>
+          <td>-r &lt;ratio&gt;</td>
+          <td>图片宽高比</td>
+          <td>"1:1"</td>
+          <td>一个使用英语双引号括住的比例数<br/>图片以 512x512 为基础面积，然后通过宽高比进行拉伸得到最终宽高</td>
+        </tr>
+        <tr>
+          <td>-h</td>
+          <td>禁用高分辨率</td>
+          <td></td>
+          <td>默认情况下插件会开启图片高分辨率，你可以在图片调教的前期使用这个参数关闭高分辨率来加快生成速度</td>
+        </tr>
+        <tr>
+          <td>-S &lt;scale&gt;</td>
+          <td>高分辨率放大倍数</td>
+          <td>2</td>
+          <td>一个 1 到 3 之间的实数<br/>倍数越高生成越慢，得到的图片也越大</td>
+        </tr>
+        <tr>
+          <td>-I &lt;steps&gt;</td>
+          <td>高分辨率迭代步数</td>
+          <td>20</td>
+          <td>一个 0 到 20 的整数<br/>越低图片细节不足，越高图片容易出现畸形</td>
+        </tr>
+        <tr>
+          <td>-d &lt;denoising&gt;</td>
+          <td>高分辨率重绘幅度</td>
+          <td>0.2</td>
+          <td>一个 0 到 1 之间的实数<br/>越低放大后与原图更接近，越高和原图差异变大</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>&emsp;</p>
+    <h2>Lora 使用</h2>
+    <p>Lora 可以帮助你画出你想要的元素，如果你的提示词总是得不到想要的，那么不妨来试试 Lora。</p>
+    <p>在使用 Lora 前，你需要输入命令 <code>#sd lora-menu</code> 查询插件支持的 Lora 列表。</p>
+    <p>在物色到你想要的 Lora 之后，你需要在图片生成的 <b>正向提示词</b> 中按照如下格式填写一个标签：</p>
+    <p style="text-align:center;margin:1.5rem 0;">
+      <b>&lt;lora:<code>Lora 的名字/别名</code>:<code>Lora 的权重</code>&gt;</b>
+    </p>
+    <p>如果一个 Lora 拥有 <b>别名</b>，那么我强烈建议你填写别名，因为有些 Lora 的全名非常长，还有可能意义不明，而由插件管理员设置的别名往往更短，且意义更加明确。</p>
+    <p>假如有一个支持的 Lora 它的名字叫“lappland”，我需要让它的权重为 0.8，则我需要填写：<code>&lt;lora:lappland:0.8&gt;</code></p>
+    <p>在你的绘画请求开始被处理时，插件会自动分析你的 Lora 是否受到支持，并发送一段文字告知你，你可以由此来检查你的 Lora 是否正确被使用。</p>
+  </body>
+</html>

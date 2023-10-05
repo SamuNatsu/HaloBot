@@ -1,0 +1,54 @@
+/* Font faces */
+@font-face {
+  font-family: noto;
+  src: url('../fonts/NotoSansMonoCJKsc-VF.otf');
+}
+
+/* Styles */
+body {
+  background: #262626;
+  color: #fff;
+  font-family: noto;
+  padding: 1rem;
+  width: 800px;
+}
+
+h1 {
+  margin: 0;
+}
+
+h2::before {
+  content: '§';
+}
+
+p {
+  line-height: 1.3rem;
+  margin: 0.7rem 0;
+}
+
+code {
+  background: #525252;
+  padding: 0 0.3rem;
+}
+
+table {
+  border: 1px solid #737373;
+  border-collapse: collapse;
+}
+td,
+th {
+  border: 1px solid #737373;
+  padding: 0.5rem;
+}
+
+.param-tbody tr td:nth-child(1) {
+  white-space: nowrap;
+}
+.param-tbody tr td:nth-child(2),
+.param-tbody tr td:nth-child(3) {
+  text-align: center;
+  white-space: nowrap;
+}
+.param-tbody tr td:nth-child(4) {
+  line-height: 1.2rem;
+}
