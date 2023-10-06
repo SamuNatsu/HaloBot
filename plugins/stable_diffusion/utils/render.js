@@ -2,6 +2,7 @@
 import path from 'path';
 import moment from 'moment';
 import fs from 'fs';
+import ejs from 'ejs';
 
 export function renderHelp(plugin, manager) {
   plugin.logger.info('开始渲染帮助菜单');

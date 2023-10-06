@@ -182,7 +182,7 @@ export default definePlugin({
     // Setup commands
     program
       .addCommand(newHelpCmd(this, ev))
-      .addCommand(newLoraListCmd(plugin, ev, true))
+      .addCommand(newLoraListCmd(this, ev, true))
       .addCommand(newLoraInfoCmd(this, ev, true))
       .addCommand(newDrawCmd(this, ev))
       .addCommand(newGroupsCmd(this, ev))
@@ -220,7 +220,7 @@ export default definePlugin({
 
     // Setup commands
     program
-      .addCommand(newHelpCmd(plugin, ev))
+      .addCommand(newHelpCmd(this, ev))
       .addCommand(newLoraListCmd(this, ev, group.nsfw))
       .addCommand(newLoraInfoCmd(this, ev, group.nsfw))
       .addCommand(newInfoCmd(this, ev, group))

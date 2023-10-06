@@ -1,7 +1,7 @@
 /// Command module
 import { Command } from 'commander';
 import moment from 'moment';
-import { renderGroups, renderLoraInfo } from './render';
+import { renderGroups, renderLoraInfo } from './render.js';
 
 export function newDefaultCmd(plugin, ev) {
   return new Command().action(() => {
@@ -23,11 +23,14 @@ export function newHelpCmd(plugin, ev) {
       ev.message_type === 'private' &&
       plugin.config.manager === String(ev.user_id)
     ) {
-      plugin.api.reply(ev, plugin.helpManagerImage);
+      plugin.api.reply(
+        ev,
+        `[CQ:image,file=base64://${plugin.helpManagerImage}]`
+      );
       return;
     }
 
-    plugin.api.reply(ev, plugin.helpImage);
+    plugin.api.reply(ev, `[CQ:image,file=base64://${plugin.helpImage}]`);
   });
 }
 
