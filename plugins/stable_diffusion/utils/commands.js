@@ -41,6 +41,7 @@ export function newLoraInfoCmd(plugin, ev, nsfw) {
   return new Command('lora').argument('<order>').action((order) => {
     const prefix =
       ev.message_type === 'group' ? `[CQ:at,qq=${ev.user_id}] ` : '';
+    const loraList = nsfw ? plugin.loraNSFWFlatList : plugin.loraSFWFlatList;
 
     // Check lora order
     if (!/^[1-9]\d*$/.test(order)) {
@@ -48,6 +49,10 @@ export function newLoraInfoCmd(plugin, ev, nsfw) {
       return;
     }
     order = parseInt(order);
+    if (order > loraList.length) {
+      plugin.api.reply(ev, `${prefix}序号超出范围`);
+      return;
+    }
 
     /** TODO */
   });

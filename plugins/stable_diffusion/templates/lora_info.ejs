@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/common.css">
+  </head>
+  <body>
+    <h1>Lora “<%= lora %>” 的详细信息</h1>
+    <hr/>
+    <p><b>全名：</b><%= name %></p>
+    <% if (alias !== undefined) { %>
+    <p><b>别名：</b><%= name %></p>
+    <% } %>
+    <p><b>是否 NSFW：</b><%= nsfw ? '是' : '否' %></p>
+    <% if (tokens !== undefined) { %>
+    <p><b>触发词表：</b></p>
+    <table>
+      <thead>
+        <tr>
+          <th>触发词</th>
+          <th>简介</th>
+        </tr>
+      </thead>
+      <tbody>
+      <% for (const i of Object.entries(tokens)) { %>
+        <tr>
+          <td><%= i[0] %></td>
+          <td><%= i[1] %></td>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+    <% } %>
+  </body>
+</html>
