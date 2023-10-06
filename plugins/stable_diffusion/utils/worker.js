@@ -1,6 +1,6 @@
 /// Worker module
 import url from 'url';
-import { loraAnalyzeAndReplace } from './lora';
+import { loraAnalyzeAndReplace } from './lora.js';
 
 export async function worker(plugin, task) {
   // Replace prompt

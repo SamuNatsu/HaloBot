@@ -5,9 +5,8 @@ import fs from 'fs';
 import joi from 'joi';
 import async from 'async';
 import moment from 'moment';
-import { readLoraList, renderLoraList } from './utils/lora.js';
+import { readLoraList } from './utils/lora.js';
 import {
-  newDefaultCmd,
   newDisableCmd,
   newDrawCmd,
   newEnableCmd,
@@ -21,7 +20,7 @@ import {
   newPromptCmd,
   newSFWCmd
 } from './utils/commands.js';
-import { renderHelp } from './utils/help.js';
+import { renderHelp, renderLoraList } from './utils/render.js';
 import { worker } from './utils/worker.js';
 
 /* Schemas */
@@ -182,7 +181,6 @@ export default definePlugin({
 
     // Setup commands
     program
-      .addCommand(newDefaultCmd(this, ev))
       .addCommand(newHelpCmd(this, ev))
       .addCommand(newLoraListCmd(plugin, ev, true))
       .addCommand(newLoraInfoCmd(this, ev, true))
@@ -222,7 +220,6 @@ export default definePlugin({
 
     // Setup commands
     program
-      .addCommand(newDefaultCmd(this, ev))
       .addCommand(newHelpCmd(plugin, ev))
       .addCommand(newLoraListCmd(this, ev, group.nsfw))
       .addCommand(newLoraInfoCmd(this, ev, group.nsfw))

@@ -16,11 +16,11 @@ export const schema: joi.ObjectSchema = joi
         priority: joi.number().integer().min(1).max(100).required(),
         version: joi
           .string()
-          .pattern(/^0|[1-9]\d*(\.0|[1-9]\d*){2}$/)
+          .pattern(/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){2}$/)
           .required(),
         botVersion: joi
           .string()
-          .pattern(/^0|[1-9]\d*(\.0|[1-9]\d*){2}$/)
+          .pattern(/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){2}$/)
           .required()
       })
       .required()

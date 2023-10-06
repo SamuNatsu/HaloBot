@@ -1,6 +1,7 @@
 /// Command module
 import { Command } from 'commander';
 import moment from 'moment';
+import { renderGroups, renderLoraInfo } from './render';
 
 export function newDefaultCmd(plugin, ev) {
   return new Command().action(() => {
@@ -38,7 +39,7 @@ export function newLoraListCmd(plugin, ev, nsfw) {
 }
 
 export function newLoraInfoCmd(plugin, ev, nsfw) {
-  return new Command('lora').argument('<order>').action((order) => {
+  return new Command('lora').argument('<order>').action(async (order) => {
     const prefix =
       ev.message_type === 'group' ? `[CQ:at,qq=${ev.user_id}] ` : '';
     const loraList = nsfw ? plugin.loraNSFWFlatList : plugin.loraSFWFlatList;
@@ -54,7 +55,11 @@ export function newLoraInfoCmd(plugin, ev, nsfw) {
       return;
     }
 
-    /** TODO */
+    // Render image
+    const b64 = await renderLoraInfo(plugin, loraList[order - 1]);
+
+    // Send
+    plugin.api.reply(ev, `[CQ:image,file=base64://${b64}]`);
   });
 }
 
@@ -158,36 +163,8 @@ export function newGroupsCmd(plugin, ev) {
     // Fetch database
     const groups = await plugin.db('enabled_groups').select();
 
-    // Render ejs
-    const inputPath = path.join(
-      plugin.currentPluginDir,
-      './templates/groups.ejs'
-    );
-    const outputHtmlPath = path.join(
-      plugin.currentPluginDir,
-      './templates/' + moment().format('YYYYMMDDHHmmssSS[.html]')
-    );
-    const outputHtml = await ejs.renderFile(inputPath, { groups });
-    fs.writeFileSync(outputHtmlPath, outputHtml);
-
-    // Render picture
-    const b64 = await plugin.api.callPluginMethod(
-      'rainiar.html_renderer',
-      'render',
-      {
-        type: 'file',
-        action: async (page) => {
-          const body = await page.$('body');
-          const { width, height } = await body.boundingBox();
-          await page.setViewport({
-            width: Math.ceil(width),
-            height: Math.ceil(height)
-          });
-        },
-        target: 'file://' + outputHtmlPath
-      }
-    );
-    fs.rmSync(outputHtmlPath);
+    // Render image
+    const b64 = await renderGroups(plugin, groups);
 
     // Send
     plugin.api.reply(ev, `[CQ:image,file=base64://${b64}]`);

@@ -96,43 +96,6 @@ export function readLoraList(plugin) {
   return { loraNSFWList, loraSFWList, loraNameSet, loraAliasMap, loraMap };
 }
 
-export async function renderLoraList(plugin, loras, nsfw) {
-  plugin.logger.info('开始渲染 Lora 列表' + (nsfw ? ' (NSFW)' : ''));
-
-  // Render ejs
-  const inputPath = path.join(
-    plugin.currentPluginDir,
-    './templates/lora_list.ejs'
-  );
-  const outputHtmlPath = path.join(
-    plugin.currentPluginDir,
-    './templates/lora_list.html'
-  );
-  const outputHtml = await ejs.renderFile(inputPath, { loras, nsfw });
-  fs.writeFileSync(outputHtmlPath, outputHtml);
-
-  // Render picture
-  const b64 = await plugin.api.callPluginMethod(
-    'rainiar.html_renderer',
-    'render',
-    {
-      type: 'file',
-      action: async (page) => {
-        const body = await page.$('body');
-        const { width, height } = await body.boundingBox();
-        await page.setViewport({
-          width: Math.ceil(width),
-          height: Math.ceil(height)
-        });
-      },
-      target: 'file://' + outputHtmlPath
-    }
-  );
-  fs.rmSync(outputHtmlPath);
-
-  return b64;
-}
-
 export function loraAnalyzeAndReplace(plugin, prompt) {
   const found = [];
   const notFound = [];
