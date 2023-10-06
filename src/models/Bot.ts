@@ -84,14 +84,12 @@ export class Bot {
     await PluginManager.getInstance().startPlugins();
 
     this.logger.info('正在启动事件监听');
-    EventDispatcher.getInstance().enable = true;
     setInterval((): void => {}, 5000);
   }
   public async stop(): Promise<void> {
     this.logger.info('正在停止 HaloBot');
 
     await PluginManager.getInstance().stopPlugins();
-    EventDispatcher.getInstance().enable = false;
 
     process.exit(0);
   }

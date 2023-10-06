@@ -75,8 +75,9 @@ export default definePlugin({
         waitUntil: 'networkidle0'
       });
     }
-    if (task.action !== undefined) {
-      await task.action(page);
+    if (task.params.action !== undefined) {
+      this.logger.info('开始执行附加动作');
+      await task.params.action(page);
     }
 
     // Create screenshot

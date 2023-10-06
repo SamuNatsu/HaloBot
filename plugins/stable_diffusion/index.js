@@ -6,28 +6,9 @@ import joi from 'joi';
 import async from 'async';
 import moment from 'moment';
 import url from 'url';
-
-/* Text */
-const loraReadme = `请在这个文件夹下存放支持的 Lora 列表信息
-每个文件将作为一个 Lora 分类，以 YAML 文件格式存储，使用 .yaml 扩展名
-如果文件名以下划线 _ 开头，则这个文件会被忽略，你可以用它来禁用一些 Lora 信息
-
-一个文件模板已经自动生成为 "_template.yaml"，你可以查看如何填写
-`;
-const loraTemplate = `# 这里填写分类的名字，必填
-category_name: 未分类
-
-# 这里是该分类下 Lora 的信息列表，必填
-list:
-  # 以下是一个样例填写
-  - lora: 测试 Lora  # Lora 的显示名称，必填
-    name: test  # Lora 的调用名称，即 <lora:XXX:1> 中的那个 XXX，必填
-    alias: test  # Lora 调用别名，有些调用名称特别长，所以插件提供了使用别名替换的功能，这是可选的
-    nsfw: false # Lora 是否为 NSFW，在 SFW 群聊里该 Lora 将不会出现在 Lora 列表中，但是你仍然可以使用它，默认为 false
-    tokens: # Lora 触发词信息表，这是一个对象类型，键为触发词，值为描述信息，用于告诉用户需要哪些触发词来使用 Lora，这是可选的
-      test1: 测试触发词 1
-      test2: 测试触发词 2
-`;
+import ejs from 'ejs';
+import { readLoraList, renderLoraList } from './utils/lora.js';
+import { saveImage } from './utils/image.js';
 
 /* Schemas */
 const configSchema = joi.object({
@@ -46,19 +27,6 @@ const configSchema = joi.object({
   upscaler_name: joi.string().required(),
   history_count: joi.number().integer().default(0)
 });
-const loraSchema = joi.object({
-  category_name: joi.string().required(),
-  list: joi
-    .array()
-    .items({
-      lora: joi.string().required(),
-      name: joi.string().required(),
-      alias: joi.string(),
-      nsfw: joi.boolean().default(false),
-      tokens: joi.object().pattern(/^.+$/, joi.string())
-    })
-    .required()
-});
 
 /* Export plugin */
 export default definePlugin({
@@ -71,126 +39,46 @@ export default definePlugin({
     version: '2.0.0',
     botVersion: '1.0.0'
   },
-  readLoraList() {
-    // Check loras folder
-    const loraDir = path.join(this.currentPluginDir, './loras');
-    if (!fs.existsSync(loraDir)) {
-      this.logger.warn(`Loras 文件夹不存在，正在创建：${loraDir}`);
-      fs.mkdirSync(loraDir, { recursive: true });
-      fs.writeFileSync(path.join(loraDir, './README.txt'), loraReadme);
-      fs.writeFileSync(path.join(loraDir, './_template.yaml'), loraTemplate);
-    }
+  async renderHelp() {
+    this.logger.info('开始渲染帮助菜单');
 
-    // Scann loras folder
-    const loraCategory = {};
-    const loraList = [];
-    const loraMap = new Map();
-    const loraNameSet = new Set();
-    const loraAliasMap = new Map();
-    fs.readdirSync(loraDir).forEach((value) => {
-      // Check file name
-      if (value.startsWith('_') || !value.endsWith('.yaml')) {
-        return;
-      }
-
-      const filePath = path.join(loraDir, value);
-      try {
-        // Read category
-        let lora = this.api.readYamlFile(filePath);
-        const { error, value } = loraSchema.validate(lora);
-        if (error !== undefined) {
-          throw error;
-        }
-        lora = value;
-
-        // Check alias conflict
-        lora.list.forEach((value) => {
-          if (value.alias !== undefined) {
-            if (loraNameSet.has(value.alias)) {
-              throw new Error(
-                `Lora "${value.lora}" 的别名 "${value.alias}" 与其他 Lora 的调用名发生冲突`
-              );
-            }
-            if (loraAliasMap.has(value.alias)) {
-              throw new Error(
-                `Lora "${value.lora}" 的别名 "${value.alias}" 与其他 Lora 的别名发生冲突`
-              );
-            }
-          }
-        });
-
-        // Update task
-        loraCategory[lora.category_name] = [
-          loraList.length,
-          loraList.length + lora.list.length
-        ];
-        lora.list.forEach((value) => {
-          loraList.push(value);
-          loraMap.set(value.name, value);
-          loraNameSet.add(value.name);
-          if (value.alias !== undefined) {
-            loraAliasMap.set(value.alias, value.name);
-          }
-        });
-        this.logger.info(`Lora 分类 "${lora.category_name}" 已加载`);
-      } catch (err) {
-        this.logger.error(`Lora 文件解析失败: ${filePath}`, err);
-      }
+    // Render ejs
+    const inputPath = path.join(this.currentPluginDir, './templates/help.ejs');
+    const outputHtmlPath = path.join(
+      this.currentPluginDir,
+      './templates/help.html'
+    );
+    const outputHtml = await ejs.renderFile(inputPath, {
+      version: this.meta.version
     });
+    fs.writeFileSync(outputHtmlPath, outputHtml);
 
-    // Store
-    this.loraCategory = loraCategory;
-    this.loraList = loraList;
-    this.loraMap = loraMap;
-    this.loraNameSet = loraNameSet;
-    this.loraAliasMap = loraAliasMap;
-  },
-  getLoraPage(page, nsfw = true) {
-    const ct = Object.entries(this.loraCategory)
-      .map((value) => [
-        value[0],
-        this.loraList
-          .slice(value[1][0], value[1][1])
-          .filter((value) => !value.nsfw || nsfw)
-      ])
-      .filter((value) => value[1].length !== 0)
-      .map((value) => {
-        const pg = Math.ceil(value[1].length / this.config.lora_page_size);
-        const ret = [];
-        for (let i = 0; i < pg; i++) {
-          const sub = value[1].slice(
-            i * this.config.lora_page_size,
-            (i + 1) * this.config.lora_page_size
-          );
-          ret.push(
-            sub.map((value) => `${value.lora}${value.nsfw ? '🔞' : ''}`)
-          );
-        }
-        return { category: value[0], list: ret };
-      });
-    let pgs = [`【Lora 分类目录】\n`];
-    let acc = 1;
-    let bcc = 2;
-    ct.forEach((v1) => {
-      pgs[0] += `${v1.category}：${bcc} 到 ${bcc + v1.list.length - 1} 页\n`;
-      v1.list.forEach((v2) => {
-        pgs.push(
-          `【Lora 列表】\n${v2
-            .map((value, idx) => `[${acc + idx}] ${value}`)
-            .join('\n')}`
-        );
-        acc += v2.length;
-      });
-      bcc += v1.list.length;
-    });
-    pgs[0] = pgs[0].trim();
-    return pgs[page];
+    // Render picture
+    this.helpImage = await this.api.callPluginMethod(
+      'rainiar.html_renderer',
+      'render',
+      {
+        type: 'file',
+        action: async (page) => {
+          const body = await page.$('body');
+          const { width, height } = await body.boundingBox();
+          await page.setViewport({
+            width: Math.ceil(width),
+            height: Math.ceil(height)
+          });
+        },
+        target: 'file://' + outputHtmlPath
+      }
+    );
+    fs.rmSync(outputHtmlPath);
   },
   getLoraInfo(ord, nsfw = true) {
-    const ls = this.loraList.filter((value) => !value.nsfw || nsfw);
-    if (ord >= ls.length) {
-      return null;
+    // Check order
+    const ls = nsfw ? this.loraNSFWFlatList : this.loraSFWFlatList;
+    if (ord > ls.length) {
+      return `序号不合法`;
     }
+
     return `【Lora 信息】\n名字：${ls[ord].lora}${
       ls[ord].nsfw ? '🔞' : ''
     }\n全名：${ls[ord].name}${
@@ -241,47 +129,6 @@ export default definePlugin({
       .select()
       .where('group_id', groupId);
     return row.length === 0 ? null : row[0];
-  },
-  async saveImage(ev, params, b64) {
-    // Check enabled save images
-    if (this.config.history_count === 0) {
-      return;
-    }
-
-    // Save file
-    const name = moment().format('YYYYMMDD_HHmmss') + '.png';
-    const filePath = path.join(this.currentPluginDir, './images', name);
-    const dec64 = Buffer.from(b64, 'base64');
-    fs.writeFileSync(filePath, dec64);
-    this.logger.info(`图片已保存至: ${filePath}`);
-
-    // Write database
-    await this.db.transaction(async (trx) => {
-      // Insert row
-      await trx('saved_images').insert({
-        file_name: name,
-        params: JSON.stringify(params),
-        user_id: ev.user_id,
-        group_id: ev.group_id
-      });
-
-      // Check infinite
-      if (this.config.history_count < 0) {
-        return;
-      }
-
-      // Get count
-      const rows = await trx('saved_images').count('* as count');
-      if (rows[0].count <= this.config.history_count) {
-        return;
-      }
-
-      // Delete oldest
-      const img = await trx('saved_images').limit(1).orderBy('file_name');
-      fs.rmSync(path.join(this.currentPluginDir, './images', img[0].file_name));
-      await trx('saved_images').delete().where({ file_name: img[0].file_name });
-      this.logger.warn(`图片已删除: ${img[0].file_name}`);
-    });
   },
   async generateWorker(task) {
     // Replace prompt
@@ -424,7 +271,7 @@ export default definePlugin({
     }
 
     // Save image
-    this.saveImage(task.ev, params, json.images[0]);
+    await saveImage.apply(this, task.ev, params, json.images[0]);
 
     // Send msg
     this.api.reply(
@@ -441,6 +288,8 @@ export default definePlugin({
 [CQ:image,file=base64://${json.images[0]}]`
     );
   },
+
+  /* Start listener */
   async onStart() {
     // Initialize config
     this.config = this.api.readYamlFile(
@@ -453,15 +302,25 @@ export default definePlugin({
     this.config = value;
     this.logger.info(`插件管理员：${this.config.manager}`);
 
+    // Initialize lora list
+    const loraData = readLoraList.apply(this);
+    this.loraNSFWListImage = await renderLoraList.apply(
+      this,
+      loraData.loraNSFWList,
+      true
+    );
+    this.loraSFWListImage = await renderLoraList.apply(
+      this,
+      loraData.loraSFWList,
+      false
+    );
+
     // Check images folder
     const imagesDir = path.join(this.currentPluginDir, './images');
     if (!fs.existsSync(imagesDir)) {
       this.logger.warn(`Images 文件夹不存在，正在创建：${imagesDir}`);
-      fs.mkdirSync(imagesDir, { recursive: true });
+      fs.mkdirSync(imagesDir);
     }
-
-    // Initialzie lora list
-    this.readLoraList();
 
     // Initialize database
     await this.db.transaction(async (trx) => {
@@ -500,30 +359,28 @@ export default definePlugin({
       }
     });
 
-    // Initialize tutorial
-    this.tutorials = this.api.readYamlFile(
-      path.join(this.currentPluginDir, './tutorials.yaml')
-    );
-
     // Initialize generate queue
     this.queue = async.queue(this.generateWorker.bind(this), 1);
     this.queue.error((err, task) => {
       this.logger.error('生成出错', err, task);
 
+      // If is call task
       if (task.resolve !== undefined) {
         task.reject(err);
         return;
       }
 
-      if (task.ev.message_type === 'private') {
-        this.api.reply(task.ev, '生成失败\n请联系管理员检查错误');
-      } else {
-        this.api.reply(
-          task.ev,
-          `[CQ:at,qq=${task.ev.user_id}] 生成失败\n请联系管理员检查错误`
-        );
-      }
+      // If is message task
+      this.api.reply(
+        task.ev,
+        (task.ev.message_type === 'private'
+          ? ''
+          : `[CQ:at,qq=${task.ev.user_id}] `) + '生成失败\n请联系管理员检查错误'
+      );
     });
+
+    // Render images
+    await this.renderHelp();
   },
   onPrivateMessage(ev) {
     // Check command
@@ -547,84 +404,9 @@ Ver ${this.meta.version}
       );
     });
 
-    program
-      .command('help')
-      .argument('[sub]')
-      .action((sub) => {
-        switch (sub) {
-          case undefined:
-            this.api.reply(
-              ev,
-              `【插件帮助】
-[#sd help draw] 查看绘图帮助
-[#sd help lora] 查看 Lora 帮助` +
-                (this.config.manager === String(ev.user_id)
-                  ? '\n[#sd help manage] 查看管理帮助'
-                  : '')
-            );
-            break;
-          case 'draw':
-            this.api.reply(
-              ev,
-              `【绘图帮助】
-  建议在私聊里查看教程以避免刷屏
-  [#sd tutorial [页码]] 查看绘图教程的某一页
-  [#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
-            );
-            break;
-          case 'lora':
-            this.api.reply(
-              ev,
-              `【Lora 帮助】
-建议在私聊里查看 Lora 信息以避免刷屏
-[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录
-[#sd lora <序号>] 查看某序号 Lora 的详细信息`
-            );
-            break;
-          case 'manage':
-            if (this.config.manager !== String(ev.user_id)) {
-              this.api.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
-              break;
-            }
-            this.api.reply(
-              ev,
-              `【管理帮助】
-以下命令只能通过私聊触发，且只有插件管理员能得到响应。
-[#sd groups] 查看所有启用插件的群号
-[#sd enable <群号>] 在某个群中启用插件
-[#sd disable <群号>] 在某个群中禁用插件
-[#sd sfw <群号>] 设置某个群为健全群
-[#sd nsfw <群号>] 设置某个群为不健全群
-[#sd prompt <群号> <正向提示词>] 设置某个群额外的正向提示词
-[#sd negative_prompt <群号> <负向提示词>] 设置某个群的额外负向提示词`
-            );
-            break;
-          default:
-            this.api.reply(ev, `找不到名为 "${sub}" 的帮助子项`);
-        }
-      });
-
-    program
-      .command('tutorial')
-      .argument('[page]', undefined, '1')
-      .action((page) => {
-        page = parseInt(page);
-        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.api.reply(ev, `页码不合法`);
-          return;
-        }
-        if (page > this.tutorials.length) {
-          this.api.reply(ev, `没有更多的页了`);
-          return;
-        }
-
-        this.api.reply(
-          ev,
-          `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
-            page - 1
-          ].trim()}`
-        );
-      });
+    program.command('help').action(() => {
+      this.api.reply(ev, this.helpImage);
+    });
 
     program
       .command('draw')
@@ -704,21 +486,9 @@ Ver ${this.meta.version}
         this.queue.push(opt);
       });
 
-    program
-      .command('loras')
-      .argument('[page]', undefined, '1')
-      .action((page) => {
-        page = parseInt(page);
-        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.api.reply(ev, `页码不合法`);
-          return;
-        }
-        if (page > this.loraTotalPage) {
-          this.api.reply(ev, `没有更多的页了`);
-          return;
-        }
-        this.api.reply(ev, this.getLoraPage(page - 1));
-      });
+    program.command('lora-list').action(() => {
+      this.api.reply(ev, `[CQ:image,file=base64://${this.loraNSFWListImage}]`);
+    });
 
     program
       .command('lora')
@@ -892,6 +662,7 @@ Ver ${this.meta.version}
       return;
     }
 
+    // Initialize command parser
     const cmd = ev.raw_message.slice(3);
     const argv = parse(cmd);
     const program = this.api.createCommandProgram();
@@ -907,66 +678,9 @@ Ver ${this.meta.version}
       );
     });
 
-    program
-      .command('help')
-      .argument('[sub]')
-      .action((sub) => {
-        switch (sub) {
-          case undefined:
-            this.api.reply(
-              ev,
-              `【插件帮助】
-[#sd help draw] 查看绘图帮助
-[#sd help lora] 查看 Lora 帮助`
-            );
-            break;
-          case 'draw':
-            this.api.reply(
-              ev,
-              `【绘图帮助】
-建议在私聊里查看教程以避免刷屏
-[#sd tutorial [页码]] 查看绘图教程的某一页
-[#sd draw [...]] 绘图命令，具体使用请查看绘图教程`
-            );
-            break;
-          case 'lora':
-            this.api.reply(
-              ev,
-              `【Lora 帮助】
-建议在私聊里查看 Lora 信息以避免刷屏
-[#sd loras [页码]] 查看 Lora 列表的某一页，其中第 1 页为目录
-[#sd lora <序号>] 查看某序号 Lora 的详细信息`
-            );
-            break;
-          default:
-            this.api.reply(
-              ev,
-              `[CQ:at,qq=${ev.user_id}] 找不到名为 "${sub}" 的帮助子项`
-            );
-        }
-      });
-
-    program
-      .command('tutorial')
-      .argument('[page]', undefined, '1')
-      .action((page) => {
-        page = parseInt(page);
-        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
-          return;
-        }
-        if (page > this.tutorials.length) {
-          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
-          return;
-        }
-
-        this.api.reply(
-          ev,
-          `【绘图教程 (${page}/${this.tutorials.length})】\n${this.tutorials[
-            page - 1
-          ].trim()}`
-        );
-      });
+    program.command('help').action(() => {
+      this.api.reply(ev, `[CQ:image,file=base64://${this.helpImage}]`);
+    });
 
     program
       .command('draw')
@@ -1066,30 +780,30 @@ Ver ${this.meta.version}
         this.queue.push(opt);
       });
 
-    program
-      .command('loras')
-      .argument('[page]', undefined, '1')
-      .action((page) => {
-        page = parseInt(page);
-        if (isNaN(page) || !Number.isInteger(page) || page < 1) {
-          this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 页码不合法`);
-          return;
-        }
-        page = this.getLoraPage(page - 1, group.nsfw);
-        this.api.reply(ev, page ?? `[CQ:at,qq=${ev.user_id}] 没有更多的页了`);
-      });
+    // Lora list
+    program.command('lora-list').action(() => {
+      this.api.reply(
+        ev,
+        `[CQ:image,file=base64://${
+          group.nsfw ? this.loraListNSFW : this.loraListSFW
+        }]`
+      );
+    });
 
+    // Lora info
     program
       .command('lora')
-      .argument('<ord>')
-      .action((ord) => {
-        ord = parseInt(ord);
-        if (isNaN(ord) || !Number.isInteger(ord) || ord < 1) {
+      .argument('<order>')
+      .action((order) => {
+        // Check lora order
+        if (!/^[1-9]\d*$/.test(order)) {
           this.api.reply(ev, `[CQ:at,qq=${ev.user_id}] 序号不合法`);
           return;
         }
-        ord = this.getLoraInfo(ord - 1, group.nsfw);
-        this.api.reply(ev, ord ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`);
+        order = parseInt(order);
+
+        order = this.getLoraInfo(order - 1, group.nsfw);
+        this.api.reply(ev, order ?? `[CQ:at,qq=${ev.user_id}] 序号不合法`);
       });
 
     try {
@@ -1098,9 +812,12 @@ Ver ${this.meta.version}
       this.logger.error('命令解析错误', err);
     }
   },
+
+  /* Call listeners */
   onCall(ev) {
     switch (ev.method_name) {
       case 'generate': {
+        // Generate params with default value
         const task = {
           prompt: '',
           negativePrompt: '',
@@ -1111,11 +828,13 @@ Ver ${this.meta.version}
           scale: 2,
           iterSteps: 10,
           denoising: 0.2,
-          ...ev.params
+          ...ev.params,
+          resolve: ev.resolve,
+          reject: ev.reject,
+          ev
         };
-        task.resolve = ev.resolve;
-        task.reject = ev.reject;
-        task.ev = ev;
+
+        // Add task
         this.queue.push(task);
         break;
       }

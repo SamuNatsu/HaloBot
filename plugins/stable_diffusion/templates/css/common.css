@@ -16,6 +16,10 @@ body {
 h1 {
   margin: 0;
 }
+h1 > span {
+  font-size: 1rem;
+  margin-left: 1rem;
+}
 
 h2::before {
   content: '§';
@@ -40,15 +44,6 @@ th {
   border: 1px solid #737373;
   padding: 0.5rem;
 }
-
-.param-tbody tr td:nth-child(1) {
+th {
   white-space: nowrap;
-}
-.param-tbody tr td:nth-child(2),
-.param-tbody tr td:nth-child(3) {
-  text-align: center;
-  white-space: nowrap;
-}
-.param-tbody tr td:nth-child(4) {
-  line-height: 1.2rem;
 }

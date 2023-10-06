@@ -2,10 +2,23 @@
 <html>
   <head>
     <link rel="stylesheet" href="css/modern-normalize.min.css">
-    <link rel="stylesheet" href="css/tutorials.css">
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+      .params-tbody tr td:nth-child(1) {
+        white-space: nowrap;
+      }
+      .params-tbody tr td:nth-child(2),
+      .params-tbody tr td:nth-child(3) {
+        text-align: center;
+        white-space: nowrap;
+      }
+      .params-tbody tr td:nth-child(4) {
+        line-height: 1.2rem;
+      }
+    </style>
   </head>
   <body>
-    <h1>Stable Diffusion 插件帮助</h1>
+    <h1>Stable Diffusion 插件帮助<span>Ver <%= version %></span></h1>
     <hr/>
     <h2>命令大全</h2>
     <table>
@@ -25,7 +38,7 @@
           <td>打印此帮助图片</td>
         </tr>
         <tr>
-          <td>#sd lora-menu</td>
+          <td>#sd lora-list</td>
           <td>打印 Lora 列表图片</td>
         </tr>
         <tr>
@@ -37,7 +50,7 @@
           <td>打印当前插件设置信息图片</td>
         </tr>
         <tr>
-          <td>#sd draw [...]</td>
+          <td>#sd draw [...参数列表]</td>
           <td>发起一个图片生成请求，具体用法请看下面</td>
         </tr>
       </tbody>
@@ -54,7 +67,7 @@
           <th>描述</th>
         </tr>
       </thead>
-      <tbody class="param-tbody">
+      <tbody class="params-tbody">
         <tr>
           <td>-p &lt;tokens&gt;</td>
           <td>正向提示词</td>
@@ -111,10 +124,15 @@
         </tr>
       </tbody>
     </table>
+    <p>以下是一些示范：</p>
+    <p><code>#sd draw -p "1girl,solo"</code>：使用“1gir,solo”作为提示词生成一张图片。</p>
+    <p><code>#sd draw -p "1girl,solo" -h</code>：使用“1gir,solo”作为提示词生成一张图片，并且不开启高分辨率放大图片。</p>
+    <p><code>#sd draw -p "1girl,solo" -r "1:2"</code>：使用“1gir,solo”作为提示词生成一张图片，并且图片的宽高比为 1:2。</p>
+    <p><code>#sd draw -p "1girl,solo" -r "1:2" -s 114514</code>：使用“1gir,solo”作为提示词生成一张宽高比为 1:2，且随机种子为 114514 的图片。</p>
     <p>&emsp;</p>
     <h2>Lora 使用</h2>
     <p>Lora 可以帮助你画出你想要的元素，如果你的提示词总是得不到想要的，那么不妨来试试 Lora。</p>
-    <p>在使用 Lora 前，你需要输入命令 <code>#sd lora-menu</code> 查询插件支持的 Lora 列表。</p>
+    <p>在使用 Lora 前，你需要输入命令 <code>#sd lora-list</code> 查询插件支持的 Lora 列表。</p>
     <p>在物色到你想要的 Lora 之后，你需要在图片生成的 <b>正向提示词</b> 中按照如下格式填写一个标签：</p>
     <p style="text-align:center;margin:1.5rem 0;">
       <b>&lt;lora:<code>Lora 的名字/别名</code>:<code>Lora 的权重</code>&gt;</b>

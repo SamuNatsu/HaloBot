@@ -35,8 +35,6 @@ export class EventDispatcher {
     { namespace: string; listener: Function }[]
   > = new Map();
 
-  public enable: boolean = false;
-
   /* Methods */
   private emit(name: string, ev: any): void {
     // Get listeners
@@ -115,11 +113,6 @@ export class EventDispatcher {
   }
 
   public dispatch(ev: any): void {
-    // Check enabled
-    if (!this.enable) {
-      return;
-    }
-
     // Freeze event object
     deepFreezeObject(ev);
 

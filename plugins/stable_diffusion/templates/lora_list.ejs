@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+      .inner-header {
+        border: 0;
+        padding: 0;
+      }
+      .inner-header > table {
+        border: 0;
+        width: 100%;
+      }
+
+      .list-row td:nth-child(1),
+      .list-row td:nth-child(2),
+      .list-row td:nth-child(4) {
+        text-align: center;
+        white-space: nowrap;
+      }
+      .list-row td:nth-child(3) {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Lora 列表</h1>
+    <hr/>
+    <p>当物色到了你想要的 Lora 之后记得使用 <code>#sd lora &lt;Lora 序号&gt;</code> 来查询详细信息</p>
+    <% if (nsfw) { %>
+    <p>NSFW 的 Lora 会使用<span style="color:red">红色</span>文字标识</p>
+    <% } %>
+    <p>&emsp;</p>
+    <table>
+      <tbody>
+        <% let counter = 0; %>
+        <% for (const i of loras) { %>
+        <tr><th colspan="5"><%= i.category_name %></th></tr>
+        <tr>
+          <th>序号</th>
+          <th>名字</th>
+          <th>全名</th>
+          <th>别名</th>
+        </tr>
+        <% for (const j of i.list) { %>
+        <% counter++; %>
+        <tr class="list-row" <%- j.nsfw ? 'style="color:red"' : '' %>>
+          <td><%= counter %></td>
+          <td><%= j.lora %></td>
+          <td><%= j.name %></td>
+          <td><%= j.alias ?? '' %></td>
+        </tr>
+        <% } %>
+        <% } %>
+      </tbody>
+    </table>
+  </body>
+</html>

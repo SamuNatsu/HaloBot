@@ -1,0 +1,13 @@
+# 这里填写分类的名字，必填
+category_name: 未分类
+
+# 这里是该分类下 Lora 的信息列表，必填
+list:
+  # 以下是一个样例填写
+  - lora: 测试 Lora  # Lora 的显示名称，必填
+    name: test  # Lora 的调用名称，即 <lora:XXX:1> 中的那个 XXX，必填
+    alias: test  # Lora 调用别名，有些调用名称特别长，所以插件提供了使用别名替换的功能，这是可选的
+    nsfw: false # Lora 是否为 NSFW，在 SFW 群聊里该 Lora 将不会出现在 Lora 列表中，但是你仍然可以使用它，默认为 false
+    tokens: # Lora 触发词信息表，这是一个对象类型，键为触发词，值为描述信息，用于告诉用户需要哪些触发词来使用 Lora，这是可选的
+      test1: 测试触发词 1
+      test2: 测试触发词 2
