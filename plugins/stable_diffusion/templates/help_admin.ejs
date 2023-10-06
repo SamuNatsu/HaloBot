@@ -18,7 +18,7 @@
     </style>
   </head>
   <body>
-    <h1>Stable Diffusion 插件帮助<span>Ver <%= version %></span></h1>
+    <h1>Stable Diffusion 插件帮助（管理员）<span>Ver <%= version %></span></h1>
     <hr/>
     <h2>命令大全</h2>
     <table>
@@ -52,6 +52,34 @@
         <tr>
           <td>#sd draw [...参数列表]</td>
           <td>发起一个图片生成请求，具体用法请看下面</td>
+        </tr>
+        <tr>
+          <td>#sd groups</td>
+          <td>打印启用了插件的群组列表图片（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd enable &lt;群号&gt;</td>
+          <td>在某个群中启用插件（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd disable &lt;群号&gt;</td>
+          <td>在某个群中禁用插件（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd nsfw &lt;群号&gt;</td>
+          <td>将某个群设置为 NSFW（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd sfw &lt;群号&gt;</td>
+          <td>将某个群设置为 SFW（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd prompt &lt;群号&gt; &lt;正向提示词&gt;</td>
+          <td>设置某个群的附加正向提示词（仅私聊和插件管理员有效）</td>
+        </tr>
+        <tr>
+          <td>#sd negative-prompt &lt;群号&gt; &lt;负向提示词&gt;</td>
+          <td>设置某个群的附加负向提示词（仅私聊和插件管理员有效）</td>
         </tr>
       </tbody>
     </table>

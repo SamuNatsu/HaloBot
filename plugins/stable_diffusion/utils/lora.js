@@ -18,13 +18,13 @@ const loraSchema = joi.object({
     .required()
 });
 
-export function readLoraList() {
-  this.logger.info('正在读取 Lora 列表');
+export function readLoraList(plugin) {
+  plugin.logger.info('正在读取 Lora 列表');
 
   // Check loras folder
-  const loraDir = path.join(this.currentPluginDir, './loras');
+  const loraDir = path.join(plugin.currentPluginDir, './loras');
   if (!fs.existsSync(loraDir)) {
-    this.logger.warn(`Loras 文件夹不存在，正在创建：${loraDir}`);
+    plugin.logger.warn(`Loras 文件夹不存在，正在创建：${loraDir}`);
     fs.mkdirSync(loraDir);
   }
 
@@ -43,7 +43,7 @@ export function readLoraList() {
 
     try {
       // Read category
-      let lora = this.api.readYamlFile(filePath);
+      let lora = plugin.api.readYamlFile(filePath);
       const { error, value } = loraSchema.validate(lora);
       if (error !== undefined) {
         throw error;
@@ -87,32 +87,32 @@ export function readLoraList() {
           loraAliasMap.set(value.alias, value.name);
         }
       });
-      this.logger.info(`Lora 分类 "${lora.category_name}" 已加载`);
+      plugin.logger.info(`Lora 分类 "${lora.category_name}" 已加载`);
     } catch (err) {
-      this.logger.error(`Lora 文件解析失败: ${filePath}`, err);
+      plugin.logger.error(`Lora 文件解析失败: ${filePath}`, err);
     }
   });
 
   return { loraNSFWList, loraSFWList, loraNameSet, loraAliasMap, loraMap };
 }
 
-export async function renderLoraList(loras, nsfw) {
-  this.logger.info('开始渲染 Lora 列表' + (nsfw ? ' (NSFW)' : ''));
+export async function renderLoraList(plugin, loras, nsfw) {
+  plugin.logger.info('开始渲染 Lora 列表' + (nsfw ? ' (NSFW)' : ''));
 
   // Render ejs
   const inputPath = path.join(
-    this.currentPluginDir,
+    plugin.currentPluginDir,
     './templates/lora_list.ejs'
   );
   const outputHtmlPath = path.join(
-    this.currentPluginDir,
+    plugin.currentPluginDir,
     './templates/lora_list.html'
   );
   const outputHtml = await ejs.renderFile(inputPath, { loras, nsfw });
   fs.writeFileSync(outputHtmlPath, outputHtml);
 
   // Render picture
-  const b64 = await this.api.callPluginMethod(
+  const b64 = await plugin.api.callPluginMethod(
     'rainiar.html_renderer',
     'render',
     {
@@ -131,4 +131,41 @@ export async function renderLoraList(loras, nsfw) {
   fs.rmSync(outputHtmlPath);
 
   return b64;
+}
+
+export function loraAnalyzeAndReplace(plugin, prompt) {
+  const found = [];
+  const notFound = [];
+
+  // Replace lora alias
+  const newPrompt = prompt.replaceAll(
+    /<lora:([0-9a-zA-Z-_ ]+):((0|[1-9]\d*)(\.\d*[1-9])?)>/g,
+    (_, name, weight) => {
+      // Get real name if exists
+      let realName;
+      if (plugin.loraAliasMap.has(name)) {
+        realName = plugin.loraAliasMap.get(name);
+      }
+
+      // Classify
+      if (plugin.loraNameSet.has(realName ?? name)) {
+        found.push({
+          name,
+          realName,
+          weight
+        });
+      } else {
+        notFound.push({
+          name,
+          realName,
+          weight
+        });
+      }
+
+      // Replace
+      return `<lora:${realName ?? name}:${weight}>`;
+    }
+  );
+
+  return { newPrompt, found, notFound };
 }

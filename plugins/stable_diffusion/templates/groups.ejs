@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+      .list-row td:nth-child(1),
+      .list-row td:nth-child(2) {
+        text-align: center;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>启用插件的群组列表</h1>
+    <hr/>
+    <p>&emsp;</p>
+    <table>
+      <thead>
+        <tr>
+          <th>群号</th>
+          <th>是否 NSFW</th>
+          <th>附加正向提示词</th>
+          <th>附加负向提示词</th>
+        </tr>
+      </thead>
+      <tbody>
+      <% for (const i of groups) { %>
+        <tr class="list-row">
+          <td><%= groups.group_id %></td>
+          <td><%= groups.nsfw ? '✅' : '❌' %></td>
+          <td><%= groups.prepend_prompt %></td>
+          <td><%= groups.prepend_negative_prompt %></td>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+  </body>
+</html>
