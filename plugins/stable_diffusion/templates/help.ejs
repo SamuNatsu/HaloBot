@@ -4,6 +4,13 @@
     <link rel="stylesheet" href="css/modern-normalize.min.css">
     <link rel="stylesheet" href="css/common.css">
     <style>
+      .cmds-tbody tr td:nth-child(1) {
+        white-space: nowrap;
+      }
+      .cmds-tbody tr td:nth-child(2) {
+        line-height: 1.2rem;
+      }
+
       .params-tbody tr td:nth-child(1) {
         white-space: nowrap;
       }
@@ -28,7 +35,7 @@
           <th>命令含义</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="cmds-tbody">
         <tr>
           <td>#sd</td>
           <td>打印插件基础信息</td>

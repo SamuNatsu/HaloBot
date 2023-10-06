@@ -27,10 +27,10 @@
       <tbody>
       <% for (const i of groups) { %>
         <tr class="list-row">
-          <td><%= groups.group_id %></td>
-          <td><%= groups.nsfw ? '✅' : '❌' %></td>
-          <td><%= groups.prepend_prompt %></td>
-          <td><%= groups.prepend_negative_prompt %></td>
+          <td><%= i.group_id %></td>
+          <td><%= i.nsfw ? '✅' : '❌' %></td>
+          <td><%= i.prepend_prompt %></td>
+          <td><%= i.prepend_negative_prompt %></td>
         </tr>
       <% } %>
       </tbody>
