@@ -42,6 +42,7 @@ import { EventDispatcher } from './EventDispatcher';
 import { CallHaloEvent } from '../interfaces/events/halo/CallHaloEvent';
 import { InjectedPlugin } from '../interfaces/Plugin';
 import { PluginManager } from './PluginManager';
+import { AccountDatabase } from './AccountDatabase';
 
 /* Special JSON */
 const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
@@ -50,13 +51,11 @@ const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
 export class API {
   /* Properties */
   private namespace: string;
-  private rootPath: string;
   private logger: Logger = new Logger('API');
 
   /* Constructor */
-  public constructor(namespace: string, rootPath: string) {
+  public constructor(namespace: string) {
     this.namespace = namespace;
-    this.rootPath = rootPath;
   }
 
   /* HaloBot utils API */
@@ -191,12 +190,29 @@ export class API {
     auto_escape?: boolean
   ): Promise<void> {
     if (ev.message_type === 'group') {
-      this.logger.info(`向群 [${ev.group_id}] 回复了消息`, truncText(reply));
-    } else if (ev.sender.group_id === undefined) {
-      this.logger.info(`向 [${ev.user_id}] 回复了消息`, truncText(reply));
-    } else {
+      const groupName: string =
+        await AccountDatabase.getInstance().getGroupName(ev.group_id);
       this.logger.info(
-        `向群 [${ev.sender.group_id}] 内 [${ev.user_id}] 回复了临时消息`,
+        `向群 ${groupName}[${ev.group_id}] 回复了消息`,
+        truncText(reply)
+      );
+    } else if (ev.sender.group_id === undefined) {
+      const userNickname: string =
+        await AccountDatabase.getInstance().getUserNickname(ev.user_id);
+      this.logger.info(
+        `向 ${userNickname}[${ev.user_id}] 回复了消息`,
+        truncText(reply)
+      );
+    } else {
+      const groupName: string =
+        await AccountDatabase.getInstance().getGroupName(ev.sender.group_id);
+      const userNickname: string =
+        await AccountDatabase.getInstance().getGroupMemberNickname(
+          ev.sender.group_id,
+          ev.user_id
+        );
+      this.logger.info(
+        `向群 ${groupName}[${ev.sender.group_id}] 内 ${userNickname}[${ev.user_id}] 回复了临时消息`,
         truncText(reply)
       );
     }
@@ -322,7 +338,7 @@ export class API {
   }
 
   /**
-   * 获取陌生人信息
+   * 获取好友列表
    */
   public async getFriendList(): Promise<FriendInfo[]> {
     return (await Adaptor.getInstance().send('get_friend_list')).data;
@@ -331,7 +347,9 @@ export class API {
   /**
    * 获取单向好友列表
    */
-  public async getUnidirectionalFirendList(): Promise<UnidirectionalFriendInfo> {
+  public async getUnidirectionalFirendList(): Promise<
+    UnidirectionalFriendInfo[]
+  > {
     return (await Adaptor.getInstance().send('get_unidirectional_friend_list'))
       .data;
   }
@@ -366,10 +384,22 @@ export class API {
     group_id?: bigint
   ): Promise<bigint> {
     if (group_id === undefined) {
-      this.logger.info(`向 [${user_id}] 发送了消息`, truncText(message));
-    } else {
+      const userNickname: string =
+        await AccountDatabase.getInstance().getUserNickname(user_id);
       this.logger.info(
-        `向群 [${group_id}] 内 [${user_id}] 发送了临时消息`,
+        `向 ${userNickname}[${user_id}] 发送了消息`,
+        truncText(message)
+      );
+    } else {
+      const groupName: string =
+        await AccountDatabase.getInstance().getGroupName(group_id);
+      const userNickname: string =
+        await AccountDatabase.getInstance().getGroupMemberNickname(
+          group_id,
+          user_id
+        );
+      this.logger.info(
+        `向群 ${groupName}[${group_id}] 内 ${userNickname}[${user_id}] 发送了临时消息`,
         truncText(message)
       );
     }
@@ -391,7 +421,13 @@ export class API {
     message: string,
     auto_escape?: boolean
   ): Promise<bigint> {
-    this.logger.info(`向群 [${group_id}] 发送了消息`, truncText(message));
+    const groupName: string = await AccountDatabase.getInstance().getGroupName(
+      group_id
+    );
+    this.logger.info(
+      `向群 ${groupName}[${group_id}] 发送了消息`,
+      truncText(message)
+    );
     return (
       await Adaptor.getInstance().send('send_group_msg', {
         group_id,
@@ -411,9 +447,19 @@ export class API {
     auto_escape?: boolean
   ): Promise<bigint> {
     if (message_type === 'private') {
-      this.logger.info(`向 [${id}] 发送了消息`, truncText(message));
+      const userNickname: string =
+        await AccountDatabase.getInstance().getUserNickname(id);
+      this.logger.info(
+        `向 ${userNickname}[${id}] 发送了消息`,
+        truncText(message)
+      );
     } else {
-      this.logger.info(`向群 [${id}] 发送了消息`, truncText(message));
+      const groupName: string =
+        await AccountDatabase.getInstance().getGroupName(id);
+      this.logger.info(
+        `向群 ${groupName}[${id}] 发送了消息`,
+        truncText(message)
+      );
     }
     return (
       await Adaptor.getInstance().send('send_msg', {

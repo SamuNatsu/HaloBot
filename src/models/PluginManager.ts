@@ -64,7 +64,7 @@ export class PluginManager {
         // Inject properties into plugin
         Object.defineProperties(plugin, {
           api: {
-            value: new API(plugin.meta.namespace, path.dirname(i)),
+            value: new API(plugin.meta.namespace),
             writable: false,
             configurable: false
           },

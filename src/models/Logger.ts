@@ -17,19 +17,35 @@ export class Logger {
 
   /* Methods */
   private printTemplate(level: string, msg: string, args: any[]): void {
-    let str: string = `[${moment().format('YYYY-MM-DD HH:mm:ss')}] ${level} (${
-      this.name
-    }): ${chalk.blueBright(msg)}\n`;
+    // Header text
+    let str: string = `[${moment().format('YYYY-MM-DD HH:mm:ss')}] `;
+    str += level;
+    str += ` (${this.name}): `;
+    str += chalk.blueBright(msg);
+    str += '\n';
+
+    // Arguments text
     for (const i of args) {
       if (i instanceof Error) {
-        str += util.inspect(i, { showHidden: false, depth: null, colors: true });
+        str += util.inspect(i, {
+          showHidden: false,
+          depth: null,
+          colors: true
+        });
       } else if (typeof i === 'string') {
         str += chalk.gray(i);
       } else {
-        str += util.inspect(i, { showHidden: true, depth: null, colors: true, compact: false });
+        str += util.inspect(i, {
+          showHidden: true,
+          depth: null,
+          colors: true,
+          compact: false
+        });
       }
       str += '\n';
     }
+
+    // Write to stdout
     process.stdout.write(str);
   }
 

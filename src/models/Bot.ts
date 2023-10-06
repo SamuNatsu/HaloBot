@@ -19,12 +19,8 @@ export class Bot {
   /* Properties */
   private logger: Logger = new Logger('HaloBot');
 
-  public readonly config: Config;
-
   /* Constructor */
-  private constructor(config: Config) {
-    this.config = config;
-  }
+  private constructor() {}
   public static async create(): Promise<Bot> {
     // Read config
     const dirname: string = getDirname();
@@ -68,7 +64,7 @@ export class Bot {
     }
 
     // Create instance
-    const ret: Bot = new Bot(config);
+    const ret: Bot = new Bot();
     const dispatcher: EventDispatcher = EventDispatcher.getInstance();
 
     // Bind message handler

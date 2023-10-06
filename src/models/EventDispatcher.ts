@@ -22,6 +22,7 @@ import { PokeNotifyNoticeEvent } from '../interfaces/events/notice/PokeNotifyNot
 import { FriendRequestEvent } from '../interfaces/events/request/FriendRequestEvent';
 import { GroupRequestEvent } from '../interfaces/events/request/GroupRequestEvent';
 import { deepFreezeObject, truncText } from '../utils';
+import { AccountDatabase } from './AccountDatabase';
 import { Logger } from './Logger';
 
 /* Export class */
@@ -112,7 +113,7 @@ export class EventDispatcher {
     this.listenerMap.clear();
   }
 
-  public dispatch(ev: any): void {
+  public async dispatch(ev: any): Promise<void> {
     // Freeze event object
     deepFreezeObject(ev);
 
@@ -123,8 +124,10 @@ export class EventDispatcher {
         switch (ev.message_type) {
           case 'group': {
             const tmp: GroupMessageEvent = ev;
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
             this.logger.info(
-              `收到群 [${tmp.group_id}] 内 ${
+              `收到群 ${groupName}[${tmp.group_id}] 内 ${
                 tmp.sender.card?.length === 0
                   ? tmp.sender.nickname
                   : tmp.sender.card
@@ -151,14 +154,25 @@ export class EventDispatcher {
         switch (ev.notice_type) {
           case 'friend_recall': {
             const tmp: FriendRecallNoticeEvent = ev;
-            this.logger.info(`[${tmp.user_id}] 撤回了消息 (${tmp.message_id})`);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+            this.logger.info(
+              `${userNickname}[${tmp.user_id}] 撤回了消息 (${tmp.message_id})`
+            );
             this.emit('onFriendRecall', tmp);
             break;
           }
           case 'group_recall': {
             const tmp: GroupRecallNoticeEvent = ev;
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getGroupMemberNickname(
+                tmp.group_id,
+                tmp.user_id
+              );
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.operator_id}] 撤回了 [${tmp.user_id}] 发送的消息 (${tmp.message_id})`
+              `群 ${groupName}[${tmp.group_id}] 内 [${tmp.operator_id}] 撤回了 ${userNickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`
             );
             this.emit('onFriendRecall', tmp);
             break;
