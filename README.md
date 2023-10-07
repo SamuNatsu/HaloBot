@@ -1,5 +1,20 @@
 # HaloBot
+
 一款基于异步 Typescript 的 go-cqhttp 机器人框架，支持插件系统并提供了高级抽象封装
+
+## 插件开发
+
+文档请见：https://github.com/SamuNatsu/HaloBot/tree/master/plugins
+
+## 机器人搭建的前置要求
+
+你需要自定准备一个 Go-CqHttp 服务作为后端使用，具体请见：https://github.com/Mrs4s/go-cqhttp
+
+Go-CqHttp 是与 QQ 进行交互的核心，它实现了各种 QQ 协议和 QQ 操作，并暴露一些 HTTP/WS 服务来供使用者调用
+
+HaloBot 是基于 Go-CqHttp 的 NodeJS 机器人框架，它在后端会调用 Go-CqHttp 的服务来与 QQ 交互
+
+HaloBot 除了提供基础的 Go-CqHttp 与 JavaScript/TypeScript 的语言绑定以外，还提供了 JavaScript 插件功能，使得使用者可以方便地开发 QQ 机器人
 
 ## 构建
 
