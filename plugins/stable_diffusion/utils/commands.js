@@ -1,20 +1,7 @@
 /// Command module
-import { Command } from 'commander';
 import moment from 'moment';
-import { renderGroups, renderLoraInfo } from './render.js';
-
-export function newDefaultCmd(plugin, ev) {
-  return new Command().action(() => {
-    plugin.api.reply(
-      ev,
-      `【StableDiffusion 插件】
-Ver ${plugin.meta.version}
-欢迎使用 AI 绘图！
-你可以在私聊中以及授权的群里使用 AI 绘图功能。
-请使用命令 [#sd help] 查看帮助。`
-    );
-  });
-}
+import { Command } from 'commander';
+import { renderGroupInfo, renderGroups, renderLoraInfo } from './render.js';
 
 export function newHelpCmd(plugin, ev) {
   return new Command('help').action(() => {
@@ -67,8 +54,13 @@ export function newLoraInfoCmd(plugin, ev, nsfw) {
 }
 
 export function newInfoCmd(plugin, ev, group) {
-  /** TODO */
-  return new Command('info');
+  return new Command('info').action(async () => {
+    // Render image
+    const b64 = await renderGroupInfo(plugin, group, plugin.config);
+
+    // Send
+    plugin.api.reply(ev, `[CQ:image,file=base64://${b64}]`);
+  });
 }
 
 export function newDrawCmd(plugin, ev, group) {
@@ -82,6 +74,7 @@ export function newDrawCmd(plugin, ev, group) {
     .option('-S|--scale <scale>', undefined, '2')
     .option('-I|--iterSteps <steps>', undefined, '10')
     .option('-d|--denoising <denoising>', undefined, '0.2')
+    .option('-o|--original')
     .action(async (opt) => {
       const prefix =
         ev.message_type === 'group' ? `[CQ:at,qq=${ev.user_id}] ` : '';

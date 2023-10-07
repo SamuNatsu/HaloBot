@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+      body {
+        width: fit-content;
+      }
+      code {
+        word-break: break-all;
+      }
+      h2 {
+        margin: 0;
+      }
+
+      .wrapper {
+        align-items: center;
+        display: flex;
+        gap: 1rem;
+      }
+      .wrapper__info {
+        width: 500px;
+      }
+      .wrapper__info__data {
+        background: #525252;
+        border-radius: 0.5rem;
+        min-height: 2rem;
+        padding: 0.5rem;
+      }
+
+      .wrapper__info__sub {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+      }
+      .wrapper__info__sub > div {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+        width: 48%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <img src="data:image/png;base64,<%= image.base64 %>">
+      <div class="wrapper__info">
+        <h2>命令</h2>
+        <p class="wrapper__info__data"><%= image.command %></p>
+        <h2>正向提示词</h2>
+        <p class="wrapper__info__data"><%= image.params.prompt %></p>
+        <h2>负向提示词</h2>
+        <p class="wrapper__info__data"><%= image.params.negative_prompt %></p>
+        <h2>详细参数</h2>
+        <div class="wrapper__info__sub">
+          <div style="width:100%">
+            <p><b>模型名称</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.override_settings.sd_model_checkpoint %>
+            </p>
+          </div>
+        </div>
+        <div class="wrapper__info__sub">
+          <div style="width:100%">
+            <p><b>采样器名称</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.sampler_name %>
+            </p>
+          </div>
+        </div>
+        <div class="wrapper__info__sub">
+          <div>
+            <p><b>请求时间</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.queryTime %>
+            </p>
+          </div>
+          <div>
+            <p><b>处理时间</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.handleTime %>
+            </p>
+          </div>
+        </div>
+        <div class="wrapper__info__sub">
+          <div>
+            <p><b>尺寸</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.width %>x<%= image.params.height %>
+            </p>
+          </div>
+          <div>
+            <p><b>迭代步数</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.steps %>
+            </p>
+          </div>
+        </div>
+        <% if (image.params.enable_hr) { %>
+          <div class="wrapper__info__sub">
+            <div style="width:100%">
+              <p><b>放大器</b></p>
+              <p class="wrapper__info__data" style="flex-grow:1">
+                <%= image.params.hr_upscaler %>
+              </p>
+            </div>
+          </div>
+        <div class="wrapper__info__sub">
+          <div>
+            <p><b>放大倍数</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.hr_scale %>
+            </p>
+          </div>
+          <div>
+            <p><b>放大迭代步数</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.hr_second_pass_steps %>
+            </p>
+          </div>
+        </div>
+        <div class="wrapper__info__sub">
+          <div>
+            <p><b>重绘幅度</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.denoising_strength %>
+            </p>
+          </div>
+          <div>
+            <p><b>放大后尺寸</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.params.width * image.params.hr_scale %>x<%= image.params.height * image.params.hr_scale %>
+            </p>
+          </div>
+        </div>
+        <% } %>
+        <div class="wrapper__info__sub">
+          <div style="width:100%">
+            <p><b>随机种子</b></p>
+            <p class="wrapper__info__data" style="flex-grow:1">
+              <%= image.seed %>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

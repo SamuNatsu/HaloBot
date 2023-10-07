@@ -10,6 +10,8 @@ body {
   color: #fff;
   font-family: noto;
   padding: 1rem;
+  transform: scale(1.5);
+  transform-origin: top left;
   width: 800px;
 }
 

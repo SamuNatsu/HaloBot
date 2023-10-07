@@ -1,7 +1,7 @@
 /// Lora utils
 import fs from 'fs';
-import path from 'path';
 import joi from 'joi';
+import path from 'path';
 
 /* Schemas */
 const loraSchema = joi.object({
@@ -82,7 +82,7 @@ export function readLoraList(plugin) {
       // Update data
       lora.list.forEach((value) => {
         loraNameSet.add(value.name);
-        loraMap.set(value.alias ?? value.name, value);
+        loraMap.set(value.name, value);
         if (value.alias !== undefined) {
           loraAliasMap.set(value.alias, value.name);
         }

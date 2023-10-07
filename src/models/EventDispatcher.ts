@@ -124,8 +124,11 @@ export class EventDispatcher {
         switch (ev.message_type) {
           case 'group': {
             const tmp: GroupMessageEvent = ev;
+
+            // Get group name
             const groupName: string =
               await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+
             this.logger.info(
               `收到群 ${groupName}[${tmp.group_id}] 内 ${
                 tmp.sender.card?.length === 0
@@ -154,8 +157,11 @@ export class EventDispatcher {
         switch (ev.notice_type) {
           case 'friend_recall': {
             const tmp: FriendRecallNoticeEvent = ev;
+
+            // Get nickname
             const userNickname: string =
               await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+
             this.logger.info(
               `${userNickname}[${tmp.user_id}] 撤回了消息 (${tmp.message_id})`
             );
@@ -164,6 +170,8 @@ export class EventDispatcher {
           }
           case 'group_recall': {
             const tmp: GroupRecallNoticeEvent = ev;
+
+            // Get group name and nickname
             const groupName: string =
               await AccountDatabase.getInstance().getGroupName(tmp.group_id);
             const userNickname: string =
@@ -171,6 +179,7 @@ export class EventDispatcher {
                 tmp.group_id,
                 tmp.user_id
               );
+
             this.logger.info(
               `群 ${groupName}[${tmp.group_id}] 内 [${tmp.operator_id}] 撤回了 ${userNickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`
             );

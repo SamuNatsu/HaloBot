@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="css/modern-normalize.min.css">
+    <link rel="stylesheet" href="css/common.css">
+  </head>
+  <body>
+    <h1>群聊 “<%= group.group_id %>” 的设置信息</h1>
+    <hr/>
+    <p><b>是否 NSFW：</b><%= group.nsfw ? '是' : '否' %></p>
+    <p><b>附加正向提示词：</b><%= group.prepend_prompt %></p>
+    <p><b>附加负向提示词：</b><%= group.prepend_negative_prompt %></p>
+    <p><b>全局正向提示词：</b><%= config.prepend_prompt %></p>
+    <p><b>全局负向提示词：</b><%= config.prepend_negative_prompt %></p>
+  </body>
+</html>

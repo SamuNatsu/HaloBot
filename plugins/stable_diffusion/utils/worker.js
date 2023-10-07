@@ -1,7 +1,9 @@
 /// Worker module
+import moment from 'moment';
 import url from 'url';
 import { loraAnalyzeAndReplace } from './lora.js';
-import moment from 'moment';
+import { saveImage } from './image.js';
+import { renderWrappedImage } from './render.js';
 
 export async function worker(plugin, task) {
   // Replace prompt
@@ -20,6 +22,10 @@ export async function worker(plugin, task) {
 
   if (task.hires) {
     msg += '\n🔍高分辨率已开启';
+  }
+
+  if (task.original) {
+    msg += '\n🖼️原图输出已开启';
   }
 
   if (found.length !== 0) {
@@ -154,16 +160,27 @@ export async function worker(plugin, task) {
   // Save image
   await saveImage(plugin, task.ev, params, json.images[0]);
 
-  // Send msg
-  plugin.api.reply(
-    task.ev,
-    `${
-      task.ev.message_type === 'group' ? `[CQ:at,qq=${task.ev.user_id}]\n` : ''
-    }提交时间：${task.queryTime}
-处理时间：${handleTime}
-正向提示词：${task.prompt}
-负向提示词：${task.negativePrompt}
-种子：${json.info.seed}
-[CQ:image,file=base64://${json.images[0]}]`
-  );
+  // Prefix
+  const prefix =
+    task.ev.message_type === 'private' ? '' : `[CQ:at,qq=${task.ev.user_id}]\n`;
+
+  // If original
+  if (task.original) {
+    plugin.api.reply(
+      task.ev,
+      `${prefix}[CQ:image,file=base64://${json.images[0]}]`
+    );
+    return;
+  }
+
+  // Render wrapped image
+  const b64 = await renderWrappedImage(plugin, {
+    base64: json.images[0],
+    command: task.ev.raw_message,
+    queryTime: task.queryTime,
+    handleTime,
+    params,
+    seed: json.info.seed
+  });
+  plugin.api.reply(task.ev, `${prefix}[CQ:image,file=base64://${b64}]`);
 }

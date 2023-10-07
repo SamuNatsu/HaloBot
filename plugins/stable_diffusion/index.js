@@ -1,10 +1,11 @@
-import { definePlugin } from '../../HaloBotPlugin.js';
-import { parse } from 'shell-quote';
-import path from 'path';
+/// Plugin entry
+import async from 'async';
 import fs from 'fs';
 import joi from 'joi';
-import async from 'async';
 import moment from 'moment';
+import path from 'path';
+import { definePlugin } from '../../HaloBotPlugin.js';
+import { parse } from 'shell-quote';
 import { readLoraList } from './utils/lora.js';
 import {
   newDisableCmd,
@@ -31,7 +32,6 @@ const configSchema = joi.object({
     .required(),
   api: joi.string().uri().required(),
   queue_size: joi.number().integer().min(1).default(5),
-  lora_page_size: joi.number().integer().min(1).default(10),
   model_name: joi.string().required(),
   sampler_name: joi.string().required(),
   prepend_prompt: joi.string().allow('').default(''),
@@ -50,7 +50,7 @@ export default definePlugin({
     author: 'SNRainiar',
     description: '用于 HaloBot 的 StableDiffusion 插件',
     priority: 50,
-    version: '2.1.0',
+    version: '2.2.0',
     botVersion: '1.0.0'
   },
 
@@ -180,6 +180,16 @@ export default definePlugin({
     const program = this.api.createCommandProgram();
 
     // Setup commands
+    program.action(() => {
+      this.api.reply(
+        ev,
+        `【StableDiffusion 插件】
+Ver ${this.meta.version}
+欢迎使用 AI 绘图！
+你可以在私聊中以及授权的群里使用 AI 绘图功能。
+请使用命令 [#sd help] 查看帮助。`
+      );
+    });
     program
       .addCommand(newHelpCmd(this, ev))
       .addCommand(newLoraListCmd(this, ev, true))
@@ -219,6 +229,16 @@ export default definePlugin({
     const program = this.api.createCommandProgram();
 
     // Setup commands
+    program.action(() => {
+      this.api.reply(
+        ev,
+        `【StableDiffusion 插件】
+Ver ${this.meta.version}
+欢迎使用 AI 绘图！
+你可以在私聊中以及授权的群里使用 AI 绘图功能。
+请使用命令 [#sd help] 查看帮助。`
+      );
+    });
     program
       .addCommand(newHelpCmd(this, ev))
       .addCommand(newLoraListCmd(this, ev, group.nsfw))

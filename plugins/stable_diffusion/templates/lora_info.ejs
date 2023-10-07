@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8">
     <link rel="stylesheet" href="css/modern-normalize.min.css">
     <link rel="stylesheet" href="css/common.css">
   </head>
   <body>
-    <h1>Lora “<%= lora %>” 的详细信息</h1>
+    <h1>Lora “<%= lora.lora %>” 的详细信息</h1>
     <hr/>
-    <p><b>全名：</b><%= name %></p>
-    <% if (alias !== undefined) { %>
-    <p><b>别名：</b><%= alias %></p>
+    <p><b>全名：</b><%= lora.name %></p>
+    <% if (lora.alias) { %>
+    <p><b>别名：</b><%= lora.alias %></p>
     <% } %>
-    <p><b>是否 NSFW：</b><%= nsfw ? '是' : '否' %></p>
-    <% if (tokens !== undefined) { %>
+    <p><b>是否 NSFW：</b><%= lora.nsfw ? '是' : '否' %></p>
+    <% if (lora.tokens !== undefined) { %>
     <p><b>触发词表：</b></p>
     <table>
       <thead>
@@ -22,7 +23,7 @@
         </tr>
       </thead>
       <tbody>
-      <% for (const i of Object.entries(tokens)) { %>
+      <% for (const i of Object.entries(lora.tokens)) { %>
         <tr>
           <td><%= i[0] %></td>
           <td><%= i[1] %></td>
