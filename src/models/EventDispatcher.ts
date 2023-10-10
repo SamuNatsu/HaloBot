@@ -125,7 +125,6 @@ export class EventDispatcher {
           case 'group': {
             const tmp: GroupMessageEvent = ev;
 
-            // Get group name
             const groupName: string =
               await AccountDatabase.getInstance().getGroupName(tmp.group_id);
 
@@ -137,15 +136,18 @@ export class EventDispatcher {
               }[${tmp.user_id}] 发送的消息 (${tmp.message_id})`,
               truncText(tmp.raw_message)
             );
+
             this.emit('onGroupMessage', tmp);
             break;
           }
           case 'private': {
             const tmp: PrivateMessageEvent = ev;
+
             this.logger.info(
               `收到 ${tmp.sender.nickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`,
               truncText(tmp.raw_message)
             );
+
             this.emit('onPrivateMessage', tmp);
             break;
           }
@@ -158,87 +160,167 @@ export class EventDispatcher {
           case 'friend_recall': {
             const tmp: FriendRecallNoticeEvent = ev;
 
-            // Get nickname
             const userNickname: string =
               await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
 
             this.logger.info(
               `${userNickname}[${tmp.user_id}] 撤回了消息 (${tmp.message_id})`
             );
+
             this.emit('onFriendRecall', tmp);
             break;
           }
           case 'group_recall': {
             const tmp: GroupRecallNoticeEvent = ev;
 
-            // Get group name and nickname
             const groupName: string =
               await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const operatorNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.operator_id,
+                tmp.group_id
+              );
             const userNickname: string =
-              await AccountDatabase.getInstance().getGroupMemberNickname(
-                tmp.group_id,
-                tmp.user_id
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
               );
 
             this.logger.info(
-              `群 ${groupName}[${tmp.group_id}] 内 [${tmp.operator_id}] 撤回了 ${userNickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`
+              `群 ${groupName}[${tmp.group_id}] 内 ${operatorNickname}[${tmp.operator_id}] 撤回了 ${userNickname}[${tmp.user_id}] 发送的消息 (${tmp.message_id})`
             );
+
             this.emit('onFriendRecall', tmp);
             break;
           }
           case 'group_increase': {
             const tmp: GroupIncreaseNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const operatorNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.operator_id,
+                tmp.group_id
+              );
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.opeator_id}] ${
+              `群 ${groupName}[${tmp.group_id}] 内 ${operatorNickname}[${
+                tmp.operator_id
+              }] ${
                 tmp.sub_type === 'approve' ? '同意' : '邀请'
-              } [${tmp.user_id}] 加入`
+              } ${userNickname}[${tmp.user_id}] 加入`
             );
+
             this.emit('onGroupIncrease', tmp);
             break;
           }
           case 'group_decrease': {
             const tmp: GroupDecreaseNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const operatorNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.operator_id,
+                tmp.group_id
+              );
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.opeator_id}] ${
+              `群 ${groupName}[${tmp.group_id}] 内 ${operatorNickname}[${
+                tmp.operator_id
+              }] ${
                 tmp.sub_type === 'leave'
                   ? '主动离开了群聊'
-                  : `将成员 [${tmp.user_id}] 踢出群聊`
+                  : `将成员 ${userNickname}[${tmp.user_id}] 踢出群聊`
               }`
             );
+
             this.emit('onGroupDecrease', tmp);
             break;
           }
           case 'group_admin': {
             const tmp: GroupAdminNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.user_id}] ${
-                tmp.sub_type === 'set' ? '被设为管理员' : '被移除管理员'
-              }`
+              `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${
+                tmp.user_id
+              }] ${tmp.sub_type === 'set' ? '被设为管理员' : '被移除管理员'}`
             );
+
             this.emit('onGroupAdmin', tmp);
             break;
           }
           case 'group_upload': {
             const tmp: GroupUploadNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.user_id}] 上传了文件: ${tmp.file.name}`
+              `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${tmp.user_id}] 上传了文件: ${tmp.file.name}`
             );
+
             this.emit('onGroupUpload', tmp);
             break;
           }
           case 'group_ban': {
             const tmp: GroupBanNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const operatorNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.operator_id,
+                tmp.group_id
+              );
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.opeator_id}] ${
+              `群 ${groupName}[${tmp.group_id}] 内 ${operatorNickname}[${
+                tmp.operator_id
+              }] ${
                 tmp.sub_type === 'ban' ? '禁言了' : '解除禁言了'
-              } 成员 [${tmp.user_id}]`
+              } 成员 ${userNickname}[${tmp.user_id}]`
             );
+
             this.emit('onGroupBan', tmp);
             break;
           }
           case 'friend_add': {
             const tmp: FriendAddNoticeEvent = ev;
-            this.logger.info(`新增了好友 [${tmp.user_id}]`);
+
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+
+            this.logger.info(`新增了好友 ${userNickname}[${tmp.user_id}]`);
             this.emit('onFriendAdd', tmp);
             break;
           }
@@ -247,36 +329,107 @@ export class EventDispatcher {
               case 'poke': {
                 const tmp: PokeNotifyNoticeEvent = ev;
                 if (tmp.group_id !== undefined) {
+                  const groupName: string =
+                    await AccountDatabase.getInstance().getGroupName(
+                      tmp.group_id
+                    );
+                  const userNickname: string =
+                    await AccountDatabase.getInstance().getUserNickname(
+                      tmp.user_id,
+                      tmp.group_id
+                    );
+                  const targetNickname: string =
+                    await AccountDatabase.getInstance().getUserNickname(
+                      tmp.target_id,
+                      tmp.group_id
+                    );
+
                   this.logger.info(
-                    `群 [${tmp.group_id}] 内 [${tmp.user_id}] 戳了 [${tmp.target_id}]`
+                    `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${tmp.user_id}] 戳了 ${targetNickname}[${tmp.target_id}]`
                   );
                 } else {
-                  this.logger.info(`[${tmp.user_id}] 戳了你`);
+                  const userNickname: string =
+                    await AccountDatabase.getInstance().getUserNickname(
+                      tmp.user_id,
+                      tmp.group_id
+                    );
+
+                  this.logger.info(`${userNickname}[${tmp.user_id}] 戳了你`);
                 }
+
                 this.emit('onPoke', tmp);
                 break;
               }
               case 'lucky_king': {
                 const tmp: GroupLuckyKingNotifyNoticeEvent = ev;
+
+                const groupName: string =
+                  await AccountDatabase.getInstance().getGroupName(
+                    tmp.group_id
+                  );
+                const userNickname: string =
+                  await AccountDatabase.getInstance().getUserNickname(
+                    tmp.user_id,
+                    tmp.group_id
+                  );
+                const targetNickname: string =
+                  await AccountDatabase.getInstance().getUserNickname(
+                    tmp.target_id,
+                    tmp.group_id
+                  );
+
                 this.logger.info(
-                  `群 [${tmp.group_id}] 内 [${tmp.user_id}] 发送的红包产生了运气王 [${tmp.target_id}]`
+                  `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${tmp.user_id}] 发送的红包产生了运气王 ${targetNickname}[${tmp.target_id}]`
                 );
+
                 this.emit('onGroupLuckyKing', tmp);
                 break;
               }
               case 'honor': {
                 const tmp: GroupHonorNotifyNoticeEvent = ev;
+
+                const groupName: string =
+                  await AccountDatabase.getInstance().getGroupName(
+                    tmp.group_id
+                  );
+                const userNickname: string =
+                  await AccountDatabase.getInstance().getUserNickname(
+                    tmp.user_id,
+                    tmp.group_id
+                  );
+
                 this.logger.info(
-                  `群 [${tmp.group_id}] 内 [${tmp.user_id}] 获得了荣誉: ${tmp.honor_type}`
+                  `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${
+                    tmp.user_id
+                  }] 获得了荣誉: ${
+                    tmp.honor_type === 'talkative'
+                      ? '龙王'
+                      : tmp.honor_type === 'performer'
+                      ? '群聊之火'
+                      : '快乐源泉'
+                  }`
                 );
+
                 this.emit('onGroupHonor', tmp);
                 break;
               }
               case 'title': {
                 const tmp: GroupTitleNotifyNoticeEvent = ev;
+
+                const groupName: string =
+                  await AccountDatabase.getInstance().getGroupName(
+                    tmp.group_id
+                  );
+                const userNickname: string =
+                  await AccountDatabase.getInstance().getUserNickname(
+                    tmp.user_id,
+                    tmp.group_id
+                  );
+
                 this.logger.info(
-                  `群 [${tmp.group_id}] 内 [${tmp.user_id}] 获得了头衔: ${tmp.title}`
+                  `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${tmp.user_id}] 获得了专属头衔: ${tmp.title}`
                 );
+
                 this.emit('onGroupTitle', tmp);
                 break;
               }
@@ -286,17 +439,31 @@ export class EventDispatcher {
             break;
           case 'group_card': {
             const tmp: GroupCardNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.user_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.user_id}] 更新了群名片: "${tmp.card_old}" -> "${tmp.card_new}"`
+              `群 ${groupName}[${tmp.group_id}] 内 ${userNickname}[${tmp.user_id}] 更新了群名片: "${tmp.card_old}" -> "${tmp.card_new}"`
             );
             this.emit('onGroupCard', tmp);
             break;
           }
           case 'offline_file': {
             const tmp: FriendOfflineFileNoticeEvent = ev;
+
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+
             this.logger.info(
-              `收到 [${tmp.user_id}] 的离线文件: ${tmp.file.name}`
+              `收到 ${userNickname}[${tmp.user_id}] 的离线文件: ${tmp.file.name}`
             );
+
             this.emit('onFriendOfflineFile', tmp);
             break;
           }
@@ -306,11 +473,23 @@ export class EventDispatcher {
           }
           case 'essence': {
             const tmp: GroupEssenceNoticeEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const operatorNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(
+                tmp.operator_id,
+                tmp.group_id
+              );
+
             this.logger.info(
-              `群 [${tmp.group_id}] 内 [${tmp.operator_id}] ${
-                tmp.sub_type === 'add' ? '添加了' : '移除了'
-              } 精华消息 (${tmp.message_id})`
+              `群 ${groupName}[${tmp.group_id}] 内 ${operatorNickname}[${
+                tmp.operator_id
+              }] ${tmp.sub_type === 'add' ? '添加了' : '移除了'} 精华消息 (${
+                tmp.message_id
+              })`
             );
+
             this.emit('onGroupEssence', tmp);
             break;
           }
@@ -322,8 +501,12 @@ export class EventDispatcher {
         switch (ev.request_type) {
           case 'friend': {
             const tmp: FriendRequestEvent = ev;
+
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+
             this.logger.info(
-              `收到 [${tmp.user_id}] 的好友请求`,
+              `收到 ${userNickname}[${tmp.user_id}] 的好友请求`,
               truncText(tmp.comment)
             );
             this.emit('onFriendRequest', tmp);
@@ -331,10 +514,16 @@ export class EventDispatcher {
           }
           case 'group': {
             const tmp: GroupRequestEvent = ev;
+
+            const groupName: string =
+              await AccountDatabase.getInstance().getGroupName(tmp.group_id);
+            const userNickname: string =
+              await AccountDatabase.getInstance().getUserNickname(tmp.user_id);
+
             this.logger.info(
-              `收到 [${tmp.user_id}] 的加群 [${tmp.group_id}] ${
-                tmp.sub_type === 'add' ? '请求' : '邀请'
-              }`,
+              `收到 ${userNickname}[${tmp.user_id}] 的加群 ${groupName}[${
+                tmp.group_id
+              }] ${tmp.sub_type === 'add' ? '请求' : '邀请'}`,
               truncText(tmp.comment)
             );
             this.emit('onGroupRequest', tmp);

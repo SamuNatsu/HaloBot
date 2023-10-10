@@ -1,31 +1,10 @@
 /// API model
+import fs from 'fs';
+import knex, { Knex } from 'knex';
+import JB from 'json-bigint';
+import YAML from 'yaml';
 import { Command } from 'commander';
 import { MessagePart } from '../interfaces/MessagePart';
-import {
-  ForwardMessage,
-  ForwardMessageInfo,
-  FriendInfo,
-  GroupAtAllRemain,
-  GroupEssenceMsg,
-  GroupFileFolderInfo,
-  GroupFileSystemInfo,
-  GroupHonorInfo,
-  GroupInfo,
-  GroupMemberInfo,
-  GroupNotice,
-  GroupSystemMsg,
-  ImageFileInfo,
-  ImageOcrData,
-  LoginInfo,
-  ModelShowInfo,
-  MsgInfo,
-  OnlineClientInfo,
-  SafelyLevel,
-  Status,
-  StrangerInfo,
-  UnidirectionalFriendInfo,
-  VersionInfo
-} from '../interfaces/api_return';
 import { GroupMessageEvent } from '../interfaces/events/message/GroupMessageEvent';
 import { PrivateMessageEvent } from '../interfaces/events/message/PrivateMessageEvent';
 import { FriendRequestEvent } from '../interfaces/events/request/FriendRequestEvent';
@@ -33,16 +12,53 @@ import { GroupRequestEvent } from '../interfaces/events/request/GroupRequestEven
 import { truncText } from '../utils';
 import { ActionError, Adaptor } from './adaptors/Adaptor';
 import { Logger } from './Logger';
-import knex, { Knex } from 'knex';
-import fs from 'fs';
-import path from 'path';
-import JB from 'json-bigint';
-import YAML from 'yaml';
 import { EventDispatcher } from './EventDispatcher';
 import { CallHaloEvent } from '../interfaces/events/halo/CallHaloEvent';
 import { InjectedPlugin } from '../interfaces/Plugin';
 import { PluginManager } from './PluginManager';
 import { AccountDatabase } from './AccountDatabase';
+import { LoginInfo } from '../interfaces/returns/account/LoginInfo';
+import { ModelShowInfo } from '../interfaces/returns/account/ModelShowInfo';
+import { OnlineClientInfo } from '../interfaces/returns/account/OnlineClientInfo';
+import { StrangerInfo } from '../interfaces/returns/friend/StrangerInfo';
+import { FriendInfo } from '../interfaces/returns/friend/FriendInfo';
+import { UnidirectionalFriendInfo } from '../interfaces/returns/friend/UnidirectionalFriendInfo';
+import { MessageInfo } from '../interfaces/returns/message/MessageInfo';
+import { ForwardMessageInfo } from '../interfaces/returns/message/ForwardMessageInfo';
+import { ForwardMessageSendResult } from '../interfaces/returns/message/ForwardMessageSendResult';
+import { ImageFileInfo } from '../interfaces/returns/image/ImageFileInfo';
+import { ImageOcrResult } from '../interfaces/returns/image/ImageOcrResult';
+import { GroupInfo } from '../interfaces/returns/group/GroupInfo';
+import { GroupMemberInfo } from '../interfaces/returns/group/GroupMemberInfo';
+import { GroupHonorInfo } from '../interfaces/returns/group/GroupHonorInfo';
+import { GroupSystemMessage } from '../interfaces/returns/group/GroupSystemMessage';
+import { GroupEssenceMessage } from '../interfaces/returns/group/GroupEssenceMessage';
+import { GroupAtAllRemain } from '../interfaces/returns/group/GroupAtAllRemain';
+import { GroupNotice } from '../interfaces/returns/group/GroupNotice';
+import { GroupFileSystemInfo } from '../interfaces/returns/group/GroupFileSystemInfo';
+import { GroupFolderFiles } from '../interfaces/returns/group/GroupFolderFiles';
+import { VersionInfo } from '../interfaces/returns/cq/VersionInfo';
+import { Status } from '../interfaces/returns/cq/Status';
+
+/**
+ * 安全等级
+ */
+enum SafelyLevel {
+  /**
+   * 安全
+   */
+  Safe = 1,
+
+  /**
+   * 未知
+   */
+  Unknown = 2,
+
+  /**
+   * 危险
+   */
+  Dangerous = 3
+}
 
 /* Special JSON */
 const JSONbig = JB({ useNativeBigInt: true, alwaysParseAsBig: true });
@@ -192,6 +208,7 @@ export class API {
     if (ev.message_type === 'group') {
       const groupName: string =
         await AccountDatabase.getInstance().getGroupName(ev.group_id);
+
       this.logger.info(
         `向群 ${groupName}[${ev.group_id}] 回复了消息`,
         truncText(reply)
@@ -199,6 +216,7 @@ export class API {
     } else if (ev.sender.group_id === undefined) {
       const userNickname: string =
         await AccountDatabase.getInstance().getUserNickname(ev.user_id);
+
       this.logger.info(
         `向 ${userNickname}[${ev.user_id}] 回复了消息`,
         truncText(reply)
@@ -207,15 +225,17 @@ export class API {
       const groupName: string =
         await AccountDatabase.getInstance().getGroupName(ev.sender.group_id);
       const userNickname: string =
-        await AccountDatabase.getInstance().getGroupMemberNickname(
-          ev.sender.group_id,
-          ev.user_id
+        await AccountDatabase.getInstance().getUserNickname(
+          ev.user_id,
+          ev.sender.group_id
         );
+
       this.logger.info(
         `向群 ${groupName}[${ev.sender.group_id}] 内 ${userNickname}[${ev.user_id}] 回复了临时消息`,
         truncText(reply)
       );
     }
+
     await Adaptor.getInstance().send('.handle_quick_operation', {
       context: ev,
       operation: {
@@ -386,6 +406,7 @@ export class API {
     if (group_id === undefined) {
       const userNickname: string =
         await AccountDatabase.getInstance().getUserNickname(user_id);
+
       this.logger.info(
         `向 ${userNickname}[${user_id}] 发送了消息`,
         truncText(message)
@@ -394,15 +415,14 @@ export class API {
       const groupName: string =
         await AccountDatabase.getInstance().getGroupName(group_id);
       const userNickname: string =
-        await AccountDatabase.getInstance().getGroupMemberNickname(
-          group_id,
-          user_id
-        );
+        await AccountDatabase.getInstance().getUserNickname(group_id, user_id);
+
       this.logger.info(
         `向群 ${groupName}[${group_id}] 内 ${userNickname}[${user_id}] 发送了临时消息`,
         truncText(message)
       );
     }
+
     return (
       await Adaptor.getInstance().send('send_private_msg', {
         user_id,
@@ -424,10 +444,12 @@ export class API {
     const groupName: string = await AccountDatabase.getInstance().getGroupName(
       group_id
     );
+
     this.logger.info(
       `向群 ${groupName}[${group_id}] 发送了消息`,
       truncText(message)
     );
+
     return (
       await Adaptor.getInstance().send('send_group_msg', {
         group_id,
@@ -449,6 +471,7 @@ export class API {
     if (message_type === 'private') {
       const userNickname: string =
         await AccountDatabase.getInstance().getUserNickname(id);
+
       this.logger.info(
         `向 ${userNickname}[${id}] 发送了消息`,
         truncText(message)
@@ -456,11 +479,13 @@ export class API {
     } else {
       const groupName: string =
         await AccountDatabase.getInstance().getGroupName(id);
+
       this.logger.info(
         `向群 ${groupName}[${id}] 发送了消息`,
         truncText(message)
       );
     }
+
     return (
       await Adaptor.getInstance().send('send_msg', {
         message_type,
@@ -475,7 +500,7 @@ export class API {
   /**
    * 获取消息
    */
-  public async getMsg(message_id: bigint): Promise<MsgInfo> {
+  public async getMsg(message_id: bigint): Promise<MessageInfo> {
     return (await Adaptor.getInstance().send('get_msg', { message_id })).data;
   }
 
@@ -496,7 +521,9 @@ export class API {
   /**
    * 获取合并转发内容
    */
-  public async getForwardMsg(message_id: bigint): Promise<ForwardMessage[]> {
+  public async getForwardMsg(
+    message_id: bigint
+  ): Promise<ForwardMessageInfo[]> {
     return (await Adaptor.getInstance().send('get_forward_msg', { message_id }))
       .data.messages;
   }
@@ -507,7 +534,7 @@ export class API {
   public async sendGroupForwardMsg(
     group_id: bigint,
     messages: MessagePart[]
-  ): Promise<ForwardMessageInfo> {
+  ): Promise<ForwardMessageSendResult> {
     return (
       await Adaptor.getInstance().send('send_group_forward_msg', {
         group_id,
@@ -565,7 +592,7 @@ export class API {
   /**
    * 图片 OCR
    */
-  public async ocrImage(image: string): Promise<ImageOcrData> {
+  public async ocrImage(image: string): Promise<ImageOcrResult> {
     return (await Adaptor.getInstance().send('ocr_image', { image })).data;
   }
 
@@ -704,14 +731,16 @@ export class API {
   /**
    * 获取群系统消息
    */
-  public async getGroupSystemMsg(): Promise<GroupSystemMsg> {
+  public async getGroupSystemMsg(): Promise<GroupSystemMessage> {
     return (await Adaptor.getInstance().send('get_group_system_msg')).data;
   }
 
   /**
    * 获取精华消息列表
    */
-  public async getEssenceMsgList(group_id: bigint): Promise<GroupEssenceMsg[]> {
+  public async getEssenceMsgList(
+    group_id: bigint
+  ): Promise<GroupEssenceMessage[]> {
     return (
       await Adaptor.getInstance().send('get_essence_msg_list', { group_id })
     ).data;
@@ -1013,9 +1042,7 @@ export class API {
   /**
    * 获取群根目录文件列表
    */
-  public async getGroupRootFiles(
-    group_id: bigint
-  ): Promise<GroupFileFolderInfo> {
+  public async getGroupRootFiles(group_id: bigint): Promise<GroupFolderFiles> {
     return (
       await Adaptor.getInstance().send('get_group_root_files', { group_id })
     ).data;
@@ -1027,7 +1054,7 @@ export class API {
   public async getGroupFilesByFolder(
     group_id: bigint,
     folder_id: string
-  ): Promise<GroupFileFolderInfo> {
+  ): Promise<GroupFolderFiles> {
     return (
       await Adaptor.getInstance().send('get_group_files_by_folder', {
         group_id,

@@ -1,6 +1,5 @@
 /// Group ban notice event interface
-
-import { NoticeEvent } from "./NoticeEvent";
+import { NoticeEvent } from './NoticeEvent';
 
 /**
  * 群禁言事件
@@ -21,7 +20,7 @@ export interface GroupBanNoticeEvent extends NoticeEvent {
   /**
    * 操作者 QQ 号
    */
-  opeator_id: bigint;
+  operator_id: bigint;
 
   /**
    * 被禁言 QQ 号，为全员禁言时为 0

@@ -14,6 +14,6 @@ export interface Config {
       ws_reverse_path?: string;
       fake_reverse_port?: number;
       fake_reverse_path?: string;
-    }
+    };
   };
 }

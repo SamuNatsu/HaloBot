@@ -20,7 +20,7 @@ export interface GroupIncreaseNoticeEvent extends NoticeEvent {
   /**
    * 操作者 QQ 号
    */
-  opeator_id: bigint;
+  operator_id: bigint;
 
   /**
    * 加入者 QQ 号

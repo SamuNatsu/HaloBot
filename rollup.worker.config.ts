@@ -10,5 +10,21 @@ export default defineConfig({
     file: 'dist/worker.min.mjs',
     format: 'esm'
   },
+  external: [
+    'worker_threads',
+    'path',
+    'fs',
+    'yaml',
+    'chalk',
+    'moment',
+    'util',
+    'ws',
+    'json-bigint',
+    'url',
+    'joi',
+    'express',
+    'knex',
+    'commander'
+  ],
   plugins: [terser(), typescript()]
 });

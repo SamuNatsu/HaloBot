@@ -10,5 +10,6 @@ export default defineConfig({
     file: 'dist/HaloBot.min.mjs',
     format: 'esm'
   },
+  external: ['worker_threads', 'path', 'chalk', 'moment', 'util', 'url'],
   plugins: [terser(), typescript()]
 });

@@ -1,5 +1,6 @@
 /// Plugin manager model
 import fs from 'fs';
+import knex from 'knex';
 import path from 'path';
 import { InjectedPlugin } from '../interfaces/Plugin';
 import { getDirname } from '../utils';
@@ -7,7 +8,6 @@ import { Logger } from './Logger';
 import { schema } from '../schemas/Plugin';
 import { API } from './API';
 import { EventDispatcher } from './EventDispatcher';
-import knex from 'knex';
 
 /* Export class */
 export class PluginManager {
@@ -109,14 +109,14 @@ export class PluginManager {
     );
   }
   public async startPlugins(): Promise<void> {
-    this.logger.info('正在启动插件');
     for (const i of this.plugins) {
       try {
+        this.logger.info(`正在启动插件: ${i.meta.name}[${i.meta.namespace}]`);
+
         if (i.onStart !== undefined) {
           await i.onStart();
         }
         EventDispatcher.getInstance().register(i);
-        this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已启动`);
       } catch (err: unknown) {
         this.logger.error(
           `插件 ${i.meta.name}[${i.meta.namespace}] 启动出错`,
@@ -126,20 +126,26 @@ export class PluginManager {
     }
   }
   public async stopPlugins(): Promise<void> {
-    this.logger.info('正在停止插件');
-    for (const i of this.plugins) {
+    for (let i = this.plugins.length - 1; i >= 0; i--) {
+      const plugin: InjectedPlugin = this.plugins[i];
+
       try {
-        if (i.onStop !== undefined) {
-          await i.onStop();
+        this.logger.info(
+          `正在停止插件: ${plugin.meta.name}[${plugin.meta.namespace}]`
+        );
+
+        if (plugin.onStop !== undefined) {
+          await plugin.onStop();
         }
-        this.logger.info(`插件 ${i.meta.name}[${i.meta.namespace}] 已停止`);
       } catch (err: unknown) {
         this.logger.error(
-          `插件 ${i.meta.name}[${i.meta.namespace}] 停止出错`,
+          `插件 ${plugin.meta.name}[${plugin.meta.namespace}] 停止出错`,
           err
         );
       }
     }
+
+    EventDispatcher.getInstance().clear();
   }
   public getPluginMetas(): InjectedPlugin['meta'][] {
     return this.plugins.map(

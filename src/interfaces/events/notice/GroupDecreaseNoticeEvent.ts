@@ -20,7 +20,7 @@ export interface GroupDecreaseNoticeEvent extends NoticeEvent {
   /**
    * 操作者 QQ 号
    */
-  opeator_id: bigint;
+  operator_id: bigint;
 
   /**
    * 离开者 QQ 号

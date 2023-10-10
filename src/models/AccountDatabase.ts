@@ -1,11 +1,9 @@
 /// Account database model
-import {
-  FriendInfo,
-  GroupInfo,
-  GroupMemberInfo,
-  StrangerInfo,
-  UnidirectionalFriendInfo
-} from '../interfaces/api_return';
+import { FriendInfo } from '../interfaces/returns/friend/FriendInfo';
+import { StrangerInfo } from '../interfaces/returns/friend/StrangerInfo';
+import { UnidirectionalFriendInfo } from '../interfaces/returns/friend/UnidirectionalFriendInfo';
+import { GroupInfo } from '../interfaces/returns/group/GroupInfo';
+import { GroupMemberInfo } from '../interfaces/returns/group/GroupMemberInfo';
 import { API } from './API';
 import { Logger } from './Logger';
 
@@ -45,13 +43,31 @@ export class AccountDatabase {
       this.logger.error('账号信息拉取失败', err);
     }
   }
-  public async getUserNickname(userId: bigint): Promise<string> {
+  public async getUserNickname(
+    userId: bigint,
+    groupId?: bigint
+  ): Promise<string> {
     // If cache matched
     if (this.friendMap.has(userId)) {
       return this.friendMap.get(userId) as string;
     }
 
     this.logger.warn(`正在拉取用户信息: ${userId}`);
+
+    try {
+      if (groupId === undefined) {
+        throw 0;
+      }
+
+      // Get group member info
+      const groupMemberInfo: GroupMemberInfo = await this.api.getGroupMemberInfo(groupId, userId);
+
+      // Update cache
+      this.friendMap.set(userId, groupMemberInfo.nickname);
+
+      return groupMemberInfo.nickname;
+    } catch (err: unknown) {}
+
     try {
       // Get stranger info
       const userInfo: StrangerInfo = await this.api.getStrangerInfo(userId);
@@ -61,7 +77,7 @@ export class AccountDatabase {
 
       return userInfo.nickname;
     } catch (err: unknown) {
-      this.logger.warn(`无法获取陌生人信息: ${userId}`, err);
+      this.logger.warn(`无法获取用户信息: ${userId}`, err);
       return '';
     }
   }
@@ -82,32 +98,6 @@ export class AccountDatabase {
       return groupInfo.group_name;
     } catch (err: unknown) {
       this.logger.warn(`无法获取群信息: ${groupId}`, err);
-      return '';
-    }
-  }
-  public async getGroupMemberNickname(
-    groupId: bigint,
-    userId: bigint
-  ): Promise<string> {
-    // If cache matched
-    if (this.friendMap.has(userId)) {
-      return this.friendMap.get(userId) as string;
-    }
-
-    this.logger.warn(`正在拉取群成员信息: ${userId}`);
-    try {
-      // Get stranger info
-      const userInfo: GroupMemberInfo = await this.api.getGroupMemberInfo(
-        groupId,
-        userId
-      );
-
-      // Update cache
-      this.friendMap.set(userId, userInfo.nickname);
-
-      return userInfo.nickname;
-    } catch (err: unknown) {
-      this.logger.warn(`无法获取群成员信息: ${userId}`, err);
       return '';
     }
   }
